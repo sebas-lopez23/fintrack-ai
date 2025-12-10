@@ -1,6 +1,6 @@
 import React from 'react';
 import { Transaction } from '@/types';
-import { CategoryItem } from '@/context/FinanceContext'; // Assuming exported, if not we redefine locally
+import { CategoryItem } from '@/types';
 import { X, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
 
 interface Props {

@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useFinance, CategoryItem } from '@/context/FinanceContext';
+import { useFinance } from '@/context/FinanceContext';
+import { CategoryItem } from '@/types';
 import { TransactionType, Category } from '@/types';
 import { X, Check, Mic, Camera, AlertCircle, Plus } from 'lucide-react';
 import { processAudioTransaction, processImageTransaction } from '@/services/geminiService';

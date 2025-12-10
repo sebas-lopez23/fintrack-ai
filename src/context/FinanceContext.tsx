@@ -222,7 +222,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
 
             if (data.categories && data.categories.length > 0) {
                 setCategories(data.categories);
-            } else {
+            } else if (userId) {
                 console.log('🌱 New Seed: Injecting Default Categories & Strategy...');
                 await seedUserDefaults(userId);
                 // Set local state immediately for UI snap
@@ -264,7 +264,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
                     .single();
 
                 if (familyData) {
-                    setCurrentFamily({ id: familyData.family_id, name: familyData.families?.name || 'Mi Familia' });
+                    setCurrentFamily({ id: familyData.family_id, name: (familyData.families as any)?.name || 'Mi Familia' });
                 }
 
                 // Check Invites

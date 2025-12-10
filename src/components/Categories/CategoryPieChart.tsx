@@ -1,7 +1,7 @@
 import React from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { Transaction, Category } from '@/types';
-import { CategoryItem } from '@/context/FinanceContext';
+import { CategoryItem } from '@/types';
 
 interface Props {
     transactions: Transaction[];
