@@ -115,12 +115,12 @@ export default function Sidebar({ isOpen, onClose, inviteCount = 0 }: SidebarPro
       </div>
 
       <style jsx>{`
-        .overlay {
+        .sidebar-overlay {
           position: fixed; top: 0; left: 0; width: 100%; height: 100%;
           background: rgba(0, 0, 0, 0.4); z-index: 40; opacity: 0; pointer-events: none;
           transition: opacity 0.3s ease; backdrop-filter: blur(4px);
         }
-        .overlay.open { opacity: 1; pointer-events: auto; }
+        .sidebar-overlay.open { opacity: 1; pointer-events: auto; }
 
         .sidebar {
           position: fixed; top: 0; left: 0; width: 300px; height: 100%;
@@ -152,7 +152,7 @@ export default function Sidebar({ isOpen, onClose, inviteCount = 0 }: SidebarPro
         }
         .close-btn:active { background: #E5E5EA; }
 
-        .sidebar-nav {
+        .sidebar-content {
           flex: 1; padding: 24px; overflow-y: auto;
           display: flex; flex-direction: column; gap: 24px;
         }
@@ -162,7 +162,7 @@ export default function Sidebar({ isOpen, onClose, inviteCount = 0 }: SidebarPro
           margin: 0 0 12px 12px;
         }
 
-        .section-items { display: flex; flex-direction: column; gap: 4px; }
+        .nav-links { display: flex; flex-direction: column; gap: 4px; }
 
         .nav-item {
           display: flex; align-items: center; gap: 14px; padding: 12px 14px;
