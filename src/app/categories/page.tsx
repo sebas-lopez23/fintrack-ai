@@ -2,7 +2,8 @@
 
 import React, { useState } from 'react';
 import MobileLayout from '@/components/Layout/MobileLayout';
-import { useFinance, CategoryItem } from '@/context/FinanceContext';
+import { useFinance } from '@/context/FinanceContext';
+import { CategoryItem } from '@/types';
 import { Plus, Edit2, Trash2, X, Check, Home } from 'lucide-react';
 import CategoryPieChart from '@/components/Categories/CategoryPieChart';
 import CategoryDetailModal from '@/components/Categories/CategoryDetailModal';
