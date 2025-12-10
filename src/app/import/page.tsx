@@ -103,8 +103,7 @@ export default function ImportPage() {
                     type: tx.type,
                     category: tx.category,
                     description: tx.merchant,
-                    date: tx.date || new Date().toISOString(),
-                    isrecurring: false
+                    date: tx.date || new Date().toISOString()
                 });
                 count++;
             }
