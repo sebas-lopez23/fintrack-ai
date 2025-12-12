@@ -1092,7 +1092,6 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
             updateAccount,
             deleteAccount,
             getUpcomingCCPayments,
-            updateBudget,
             strategyTargets,
             updateStrategyTarget,
             // Family
