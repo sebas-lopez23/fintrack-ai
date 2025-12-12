@@ -5,38 +5,43 @@ import { useRouter } from 'next/navigation';
 import {
   User,
   Users,
-  CreditCard,
   Moon,
   Globe,
   ChevronRight,
   LogOut,
-  Shield,
   Bell,
-  X,
-  Check
+  X
 } from 'lucide-react';
 import MobileLayout from '@/components/Layout/MobileLayout';
 import { useFinance } from '@/context/FinanceContext';
+import { UserProfile } from '@/types';
 
 export default function ProfilePage() {
   const router = useRouter();
-  const { isDarkTheme, toggleTheme, currentUser, setCurrentUser } = useFinance();
+  const { isDarkTheme, toggleTheme, currentUser, seedUserDefaults, userId } = useFinance();
 
-  // States for interactivity
-  const [userName, setUserName] = useState(typeof currentUser === 'string' ? currentUser.split('@')[0] : 'Usuario');
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const [familyMembers, setFamilyMembers] = useState(['Hogar']);
+  // Load initial username
+  const [userName, setUserName] = useState<string>('Usuario');
 
-  // Update userName when currentUser changes
   React.useEffect(() => {
-    if (typeof currentUser === 'string') {
-      setUserName(currentUser.split('@')[0]);
+    async function loadProfile() {
+      if (userId) {
+        const { supabase } = await import('@/lib/supabase');
+        const { data } = await supabase.from('profiles').select('full_name').eq('id', userId).single();
+        if (data?.full_name) setUserName(data.full_name);
+        else if (typeof currentUser === 'string') setUserName(currentUser.split('@')[0]);
+      } else if (typeof currentUser === 'string') {
+        setUserName(currentUser.split('@')[0]);
+      }
     }
-  }, [currentUser]);
+    loadProfile();
+  }, [userId, currentUser]);
 
   // Modal States
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [tempName, setTempName] = useState('');
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [familyMembers, setFamilyMembers] = useState(['Hogar']);
 
   // Swipe Logic
   const [touchStart, setTouchStart] = useState<number | null>(null);
@@ -67,23 +72,32 @@ export default function ProfilePage() {
     setIsEditProfileOpen(true);
   };
 
-  const saveProfileName = () => {
-    setUserName(tempName);
-    setIsEditProfileOpen(false);
-    // TODO: Update profile in Supabase
-  };
+  const saveProfileName = async () => {
+    if (!userId) return;
+    try {
+      const { supabase } = await import('@/lib/supabase');
+      // Update both profiles and default auth metadata if possible, but profiles table is our source of truth now
+      const { error } = await supabase.from('profiles').update({ full_name: tempName }).eq('id', userId);
 
-  const handleAddFamily = () => {
-    const newMember = prompt("Nombre del nuevo miembro de la familia:");
-    if (newMember) {
-      setFamilyMembers([...familyMembers, newMember]);
+      if (error) {
+        console.error(error);
+        alert('Error al guardar nombre: ' + error.message);
+      } else {
+        setUserName(tempName);
+        setIsEditProfileOpen(false);
+      }
+    } catch (e: any) {
+      alert('Error: ' + e.message);
     }
   };
 
-  const handleLogout = async () => {
+  const handleAddFamily = () => {
+    router.push('/family');
+  };
+
+  const handleSignOut = async () => {
     const { supabase } = await import('@/lib/supabase');
     await supabase.auth.signOut();
-    setCurrentUser('user1'); // Reset to default or clear
     router.push('/login');
   };
 
@@ -181,16 +195,6 @@ export default function ProfilePage() {
           <div className="group-content">
             <div className="settings-item">
               <div className="item-left">
-                <div className="icon-box" style={{ background: '#34C759' }}><Globe size={20} /></div>
-                <span className="item-label">Moneda</span>
-              </div>
-              <div className="item-right">
-                <span className="item-value">COP ($)</span>
-                <ChevronRight size={16} className="chevron" />
-              </div>
-            </div>
-            <div className="settings-item">
-              <div className="item-left">
                 <div className="icon-box" style={{ background: '#FF9500' }}><Moon size={20} /></div>
                 <span className="item-label">Tema Oscuro</span>
               </div>
@@ -210,9 +214,36 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        <button className="logout-btn" onClick={handleLogout}>
+        {/* DEBUG / RECOVERY SECTION */}
+        <div className="section-container" style={{ marginTop: '24px', borderTop: '1px solid #eee', paddingTop: '24px' }}>
+          <h3 className="section-title text-red-500">Zona de Peligro / Recuperación</h3>
+          <p className="text-sm text-gray-500 mb-4">
+            Si entraste y no ves tus categorías, pulsa aquí.
+          </p>
+          <button
+            onClick={async () => {
+              if (!confirm('¿Reiniciar datos base?')) return;
+              try {
+                if (userId && seedUserDefaults) {
+                  await seedUserDefaults(userId, typeof currentUser === 'string' ? currentUser : undefined);
+                  alert('✅ Datos reiniciados. Recarga la página.');
+                  window.location.reload();
+                } else {
+                  alert('Error: Datos user no disponibles');
+                }
+              } catch (e: any) {
+                alert('Error: ' + e.message);
+              }
+            }}
+            className="w-full py-3 bg-red-50 text-red-600 rounded-xl font-medium"
+          >
+            🏗️ Forzar Reinicio de Datos
+          </button>
+        </div>
+
+        <button className="logout-btn" onClick={handleSignOut}>
           <LogOut size={20} />
-          Cerrar Sesión
+          <span>Cerrar Sesión</span>
         </button>
 
         {/* Edit Profile Modal */}

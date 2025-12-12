@@ -34,6 +34,8 @@ interface FinanceContextType extends FinanceState {
     updateStrategyTarget: (type: 'needs' | 'wants' | 'savings', pct: number) => Promise<void>;
     getUpcomingCCPayments: () => Subscription[];
     strategyTargets: { needs: number; wants: number; savings: number };
+    userId: string | null;
+    seedUserDefaults: (uid: string, email?: string) => Promise<void>;
     // Family
     familyInput: string;
     setFamilyInput: (val: string) => void;
@@ -110,6 +112,10 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
                 console.log('🔄 Auth Change:', session.user.email);
                 setUserId(session.user.id);
                 setCurrentUser(session.user.email || 'Usuario');
+
+                // Auto-seed/ensure profile exists on login
+                seedUserDefaults(session.user.id, session.user.email);
+
                 await fetchData(session.user.id);
             } else {
                 setUserId(null);
@@ -675,28 +681,51 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
         }
     };
 
-    const seedUserDefaults = async (uid: string) => {
+    const seedUserDefaults = async (uid: string, email?: string) => {
         try {
-            // 1. Insert Categories
-            const categoriesToInsert = DEFAULT_CATEGORIES.map(c => ({
-                user_id: uid,
-                name: c.name,
-                type: c.type,
-                icon: c.icon,
-                color: c.color
-            }));
+            console.log('🌱 Seeding user defaults for:', uid);
 
-            const { error: catError } = await supabase.from('categories').insert(categoriesToInsert);
-            if (catError) console.error('Seed Cats Error:', catError);
+            // 0. Ensure Profile Exists (CRITICAL for FK constraints)
+            const { error: profileError } = await supabase.from('profiles').upsert({
+                id: uid,
+                email: email || '',
+                full_name: email?.split('@')[0] || 'Nuevo Usuario',
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'id' });
 
-            // 2. Insert 50/30/20 Strategy
-            const defaults = [
-                { user_id: uid, category: '_META_NEEDS', limit_amount: 50, period: 'monthly' },
-                { user_id: uid, category: '_META_WANTS', limit_amount: 30, period: 'monthly' },
-                { user_id: uid, category: '_META_SAVINGS', limit_amount: 20, period: 'monthly' }
-            ];
-            const { error: budError } = await supabase.from('budgets').insert(defaults);
-            if (budError) console.error('Seed Budgets Error:', budError);
+            if (profileError) {
+                console.error('❌ Failed to create profile:', profileError);
+                // If profile fails, others might fail too, but we try anyway
+            }
+
+            // 1. Insert Categories (Check if empty first to avoid duplicates if re-running)
+            const { count } = await supabase.from('categories').select('*', { count: 'exact', head: true }).eq('user_id', uid);
+
+            if (count === 0) {
+                const categoriesToInsert = DEFAULT_CATEGORIES.map(c => ({
+                    user_id: uid,
+                    name: c.name,
+                    type: c.type,
+                    icon: c.icon,
+                    color: c.color
+                }));
+
+                const { error: catError } = await supabase.from('categories').insert(categoriesToInsert);
+                if (catError) console.error('Seed Cats Error:', catError);
+            }
+
+            // 2. Insert 50/30/20 Strategy (Check if empty)
+            const { count: bCount } = await supabase.from('budgets').select('*', { count: 'exact', head: true }).eq('user_id', uid);
+
+            if (bCount === 0) {
+                const defaults = [
+                    { user_id: uid, category: '_META_NEEDS', limit_amount: 50, period: 'monthly' },
+                    { user_id: uid, category: '_META_WANTS', limit_amount: 30, period: 'monthly' },
+                    { user_id: uid, category: '_META_SAVINGS', limit_amount: 20, period: 'monthly' }
+                ];
+                const { error: budError } = await supabase.from('budgets').insert(defaults);
+                if (budError) console.error('Seed Budgets Error:', budError);
+            }
 
         } catch (e) {
             console.error('Seeding failed:', e);
@@ -1056,6 +1085,9 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
             addCategory,
             updateCategory,
             deleteCategory,
+            seedUserDefaults,
+            updateBudget,
+            userId, // Expose userId
             addTransfer,
             updateAccount,
             deleteAccount,

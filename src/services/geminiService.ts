@@ -2,7 +2,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { supabase } from '@/lib/supabase';
 
 // Initialize Gemini AI
-const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_API_KEY;
 const genAI = new GoogleGenerativeAI(apiKey || '');
 
 export interface TransactionData {

@@ -30,12 +30,21 @@ export default function Home() {
     addCategory, // Restored
     updateTransaction, // Restored
     deleteTransaction, // Restored
-    pendingInvites
+    pendingInvites,
+    userId,
+    isLoading
   } = useFinance();
   const [greeting, setGreeting] = useState('');
   const [showPartial, setShowPartial] = useState(false);
   const [isBalanceVisible, setIsBalanceVisible] = useState(true);
   const [isChatOpen, setIsChatOpen] = useState(false);
+
+  // Auth Guard
+  useEffect(() => {
+    if (!isLoading && !userId && !currentUser) {
+      router.push('/login');
+    }
+  }, [isLoading, userId, currentUser, router]);
 
   // Modal states
   const [modalType, setModalType] = useState<ModalType>(null);

@@ -12,6 +12,15 @@ export interface CategoryItem {
     color?: string;
 }
 
+export interface UserProfile {
+    id: string;
+    email: string;
+    full_name?: string;
+    avatar_url?: string;
+    currency?: string;
+    theme?: 'light' | 'dark';
+}
+
 export interface Transaction {
     id: string;
     amount: number;
