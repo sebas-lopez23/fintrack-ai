@@ -420,6 +420,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
             console.error('Error adding transaction:', error);
             // Rollback on error
             setTransactions(prev => prev.filter(t => t.id !== tempId));
+            throw error;
         }
     };
 
@@ -443,6 +444,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
         } catch (error) {
             console.error('Error updating transaction:', error);
             // Revert on error (would need to re-fetch or store previous state, simplified here)
+            throw error;
         }
     };
 
@@ -452,6 +454,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
             await supabase.from('transactions').delete().eq('id', id);
         } catch (error) {
             console.error('Error deleting transaction:', error);
+            throw error;
         }
     };
 
@@ -477,8 +480,8 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
 
             if (error) throw error;
         } catch (error) {
-            console.error('Error adding account:', error);
             setAccounts(prev => prev.filter(a => a.id !== acc.id));
+            throw error;
         }
     };
 
@@ -488,6 +491,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
             await supabase.from('accounts').update({ balance: newBalance }).eq('id', id);
         } catch (error) {
             console.error('Error updating balance:', error);
+            throw error;
         }
     };
 
@@ -515,8 +519,8 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
                 setSubscriptions(prev => prev.map(s => s.id === tempId ? { ...s, id: data.id } : s));
             }
         } catch (error) {
-            console.error('Error adding subscription:', error);
             setSubscriptions(prev => prev.filter(s => s.id !== tempId));
+            throw error;
         }
     };
 
@@ -535,6 +539,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
             if (error) throw error;
         } catch (error) {
             console.error('Error updating subscription:', error);
+            throw error;
         }
     };
 
@@ -544,6 +549,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
             await supabase.from('subscriptions').delete().eq('id', id);
         } catch (error) {
             console.error('Error deleting subscription:', error);
+            throw error;
         }
     };
 
@@ -573,6 +579,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
             console.error('Error adding category:', error);
             // Rollback
             setCategories(prev => prev.filter(c => c.id !== tempId));
+            throw error; // Rethrow to UI
         }
     };
 
@@ -599,6 +606,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
             if (error) throw error;
         } catch (error) {
             console.error('Error deleting category:', error);
+            throw error;
         }
     };
 

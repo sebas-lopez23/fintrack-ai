@@ -37,26 +37,34 @@ export default function CategoriesPage() {
     const filteredCategories = categories.filter(c => c.type === activeTab);
 
     const handleSave = async () => {
-        if (!formData.name) return;
-
-        if (editingCategory && editingCategory.id) {
-            await updateCategory(editingCategory.id, {
-                name: formData.name,
-                type: formData.type,
-                icon: formData.icon,
-                color: formData.color
-            });
-        } else {
-            await addCategory({
-                name: formData.name,
-                type: formData.type as 'income' | 'expense',
-                icon: formData.icon || '🏷️',
-                color: formData.color
-            });
+        if (!formData.name) {
+            alert('Por favor ingresa un nombre para la categoría');
+            return;
         }
-        setIsModalOpen(false);
-        setEditingCategory(null);
-        setFormData({ type: activeTab, color: '#8E8E93', icon: '🏷️' });
+
+        try {
+            if (editingCategory && editingCategory.id) {
+                await updateCategory(editingCategory.id, {
+                    name: formData.name,
+                    type: formData.type,
+                    icon: formData.icon,
+                    color: formData.color
+                });
+            } else {
+                await addCategory({
+                    name: formData.name,
+                    type: formData.type as 'income' | 'expense',
+                    icon: formData.icon || '🏷️',
+                    color: formData.color
+                });
+            }
+            setIsModalOpen(false);
+            setEditingCategory(null);
+            setFormData({ type: activeTab, color: '#8E8E93', icon: '🏷️' });
+        } catch (e: any) {
+            alert('Error al guardar categoría: ' + e.message);
+            console.error(e);
+        }
     };
 
     const handleDelete = async (id: string, e: React.MouseEvent) => {
