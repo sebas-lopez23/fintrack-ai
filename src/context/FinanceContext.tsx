@@ -699,11 +699,12 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
             }
 
             // 1. Insert Categories (Check if empty first to avoid duplicates if re-running)
-            const { count } = await supabase.from('categories').select('*', { count: 'exact', head: true }).eq('user_id', uid);
+            // Note: DB column is 'owner_user_id' for categories
+            const { count } = await supabase.from('categories').select('*', { count: 'exact', head: true }).eq('owner_user_id', uid);
 
             if (count === 0) {
                 const categoriesToInsert = DEFAULT_CATEGORIES.map(c => ({
-                    user_id: uid,
+                    owner_user_id: uid,
                     name: c.name,
                     type: c.type,
                     icon: c.icon,
