@@ -14,6 +14,17 @@ export default function LoginPage() {
   const [error, setError] = useState('');
 
   // Auto-login for development
+  // Check for existing session
+  React.useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        router.push('/dashboard');
+      }
+    };
+    checkSession();
+  }, [router]);
+
   // Auto-login for development
   React.useEffect(() => {
     if (process.env.NODE_ENV === 'development') {
@@ -28,13 +39,11 @@ export default function LoginPage() {
           });
           if (!error) {
             // Force reload to ensure Context picks up the new session
-            window.location.href = '/';
+            window.location.href = '/dashboard';
           } else {
             console.error('Auto-login failed:', error);
             setIsLoading(false);
           }
-        } else {
-          router.push('/');
         }
       };
       autoLogin();
@@ -60,7 +69,7 @@ export default function LoginPage() {
           password,
         });
         if (error) throw error;
-        router.push('/'); // Ir al dashboard
+        router.push('/dashboard'); // Ir al dashboard
       }
     } catch (err: any) {
       setError(err.message);
