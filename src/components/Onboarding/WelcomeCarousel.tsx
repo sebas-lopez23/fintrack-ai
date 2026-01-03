@@ -6,126 +6,134 @@ import { Sparkles, TrendingUp, Wallet, PieChart, Users, ArrowRight, ChevronLeft,
 import { useOnboarding } from '@/context/OnboardingContext';
 
 interface Slide {
-    icon: React.ReactNode;
-    title: string;
-    description: string;
-    gradient: string;
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  gradient: string;
 }
 
 const SLIDES: Slide[] = [
-    {
-        icon: <Sparkles size={64} />,
-        title: 'Bienvenido a FinTrack AI',
-        description: 'Tu asistente financiero personal impulsado por inteligencia artificial. Gestiona tus finanzas de manera inteligente y alcanza tus metas.',
-        gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    },
-    {
-        icon: <TrendingUp size={64} />,
-        title: 'Análisis Inteligente',
-        description: 'Obtén insights personalizados sobre tus gastos, identifica patrones y recibe recomendaciones para mejorar tus finanzas.',
-        gradient: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-    },
-    {
-        icon: <Wallet size={64} />,
-        title: 'Multi-Cuenta',
-        description: 'Administra todas tus cuentas bancarias, tarjetas de crédito y efectivo en un solo lugar. Control total de tu patrimonio.',
-        gradient: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-    },
-    {
-        icon: <PieChart size={64} />,
-        title: 'Presupuestos Automáticos',
-        description: 'Crea presupuestos por categoría y recibe alertas cuando te acerques al límite. Planifica con confianza.',
-        gradient: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
-    },
-    {
-        icon: <Users size={64} />,
-        title: 'Finanzas en Pareja',
-        description: 'Comparte cuentas y gastos con tu pareja. Gestionen juntos su hogar con transparencia total.',
-        gradient: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
-    },
+  {
+    icon: <Sparkles size={64} />,
+    title: 'Bienvenido a FinTrack AI',
+    description: 'Tu asistente financiero personal impulsado por inteligencia artificial. Gestiona tus finanzas de manera inteligente y alcanza tus metas.',
+    gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+  },
+  {
+    icon: <TrendingUp size={64} />,
+    title: 'Análisis Inteligente',
+    description: 'Obtén insights personalizados sobre tus gastos, identifica patrones y recibe recomendaciones para mejorar tus finanzas.',
+    gradient: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+  },
+  {
+    icon: <Wallet size={64} />,
+    title: 'Multi-Cuenta',
+    description: 'Administra todas tus cuentas bancarias, tarjetas de crédito y efectivo en un solo lugar. Control total de tu patrimonio.',
+    gradient: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+  },
+  {
+    icon: <PieChart size={64} />,
+    title: 'Presupuestos Automáticos',
+    description: 'Crea presupuestos por categoría y recibe alertas cuando te acerques al límite. Planifica con confianza.',
+    gradient: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
+  },
+  {
+    icon: <Users size={64} />,
+    title: 'Finanzas en Pareja',
+    description: 'Comparte cuentas y gastos con tu pareja. Gestionen juntos su hogar con transparencia total.',
+    gradient: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
+  },
 ];
 
 export default function WelcomeCarousel() {
-    const router = useRouter();
-    const { completeStep } = useOnboarding();
-    const [currentSlide, setCurrentSlide] = useState(0);
+  const router = useRouter();
+  const { completeStep, nextStep, userId } = useOnboarding();
+  const [currentSlide, setCurrentSlide] = useState(0);
 
-    const handleNext = () => {
-        if (currentSlide < SLIDES.length - 1) {
-            setCurrentSlide(currentSlide + 1);
-        } else {
-            handleGetStarted();
-        }
-    };
+  const handleNext = () => {
+    if (currentSlide < SLIDES.length - 1) {
+      setCurrentSlide(currentSlide + 1);
+    } else {
+      handleGetStarted();
+    }
+  };
 
-    const handlePrev = () => {
-        if (currentSlide > 0) {
-            setCurrentSlide(currentSlide - 1);
-        }
-    };
+  const handlePrev = () => {
+    if (currentSlide > 0) {
+      setCurrentSlide(currentSlide - 1);
+    }
+  };
 
-    const handleGetStarted = async () => {
-        await completeStep('welcomeCarouselCompleted');
-        router.push('/login');
-    };
+  const handleGetStarted = async () => {
+    if (userId) {
+      // User is logged in (Onboarding Flow)
+      await completeStep('welcomeCarouselCompleted');
+      nextStep();
+    } else {
+      // User is guest (Landing Page)
+      // We can't save progress yet, but we will redirect to login.
+      // After login, they will start at 'welcome' step in SetupContainer.
+      router.push('/login');
+    }
+  };
 
-    const slide = SLIDES[currentSlide];
-    const isLastSlide = currentSlide === SLIDES.length - 1;
+  const slide = SLIDES[currentSlide];
+  const isLastSlide = currentSlide === SLIDES.length - 1;
 
-    return (
-        <div className="welcome-container">
-            <div className="carousel-wrapper">
-                {/* Progress Dots */}
-                <div className="progress-dots">
-                    {SLIDES.map((_, index) => (
-                        <button
-                            key={index}
-                            className={`dot ${index === currentSlide ? 'active' : ''}`}
-                            onClick={() => setCurrentSlide(index)}
-                            aria-label={`Go to slide ${index + 1}`}
-                        />
-                    ))}
-                </div>
+  return (
+    <div className="welcome-container">
+      <div className="carousel-wrapper">
+        {/* Progress Dots */}
+        <div className="progress-dots">
+          {SLIDES.map((_, index) => (
+            <button
+              key={index}
+              className={`dot ${index === currentSlide ? 'active' : ''}`}
+              onClick={() => setCurrentSlide(index)}
+              aria-label={`Go to slide ${index + 1}`}
+            />
+          ))}
+        </div>
 
-                {/* Slide Content */}
-                <div className="slide-container">
-                    <div
-                        className="icon-wrapper"
-                        style={{ background: slide.gradient }}
-                    >
-                        {slide.icon}
-                    </div>
+        {/* Slide Content */}
+        <div className="slide-container">
+          <div
+            className="icon-wrapper"
+            style={{ background: slide.gradient }}
+          >
+            {slide.icon}
+          </div>
 
-                    <h1 className="slide-title">{slide.title}</h1>
-                    <p className="slide-description">{slide.description}</p>
-                </div>
+          <h1 className="slide-title">{slide.title}</h1>
+          <p className="slide-description">{slide.description}</p>
+        </div>
 
-                {/* Navigation */}
-                <div className="nav-controls">
-                    {currentSlide > 0 && (
-                        <button className="nav-btn prev" onClick={handlePrev}>
-                            <ChevronLeft size={24} />
-                        </button>
-                    )}
+        {/* Navigation */}
+        <div className="nav-controls">
+          {currentSlide > 0 && (
+            <button className="nav-btn prev" onClick={handlePrev}>
+              <ChevronLeft size={24} />
+            </button>
+          )}
 
-                    <button
-                        className="primary-btn"
-                        onClick={handleNext}
-                    >
-                        {isLastSlide ? 'Comenzar' : 'Siguiente'}
-                        {isLastSlide ? <ArrowRight size={20} /> : <ChevronRight size={20} />}
-                    </button>
-                </div>
+          <button
+            className="primary-btn"
+            onClick={handleNext}
+          >
+            {isLastSlide ? 'Comenzar' : 'Siguiente'}
+            {isLastSlide ? <ArrowRight size={20} /> : <ChevronRight size={20} />}
+          </button>
+        </div>
 
-                {/* Skip Button */}
-                {!isLastSlide && (
-                    <button className="skip-btn" onClick={handleGetStarted}>
-                        Saltar
-                    </button>
-                )}
-            </div>
+        {/* Skip Button */}
+        {!isLastSlide && (
+          <button className="skip-btn" onClick={handleGetStarted}>
+            Saltar
+          </button>
+        )}
+      </div>
 
-            <style jsx>{`
+      <style jsx>{`
         .welcome-container {
           min-height: 100vh;
           display: flex;
@@ -319,6 +327,6 @@ export default function WelcomeCarousel() {
           }
         }
       `}</style>
-        </div>
-    );
+    </div>
+  );
 }
