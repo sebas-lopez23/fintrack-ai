@@ -138,11 +138,14 @@ export default function FinancialChart() {
 
       <style jsx>{`
         .chart-container {
-          background: white;
-          border-radius: 24px;
-          padding: 20px;
-          box-shadow: 0 2px 12px rgba(0,0,0,0.03);
-          margin-bottom: 24px;
+          background: var(--glass-surface);
+          backdrop-filter: blur(16px);
+          -webkit-backdrop-filter: blur(16px);
+          border: 1px solid var(--glass-border);
+          border-radius: 32px;
+          padding: 24px;
+          box-shadow: var(--shadow-glass);
+          margin-bottom: 32px;
         }
 
         .chart-header {

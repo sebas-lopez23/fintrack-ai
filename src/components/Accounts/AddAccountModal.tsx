@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Save, Wallet, CreditCard, Landmark } from 'lucide-react';
+import { X, Save, Wallet, CreditCard, Landmark, Banknote, Coins, DollarSign, PiggyBank, Briefcase, Smartphone, Building2, Receipt } from 'lucide-react';
 import { useFinance } from '@/context/FinanceContext';
 import { Account } from '@/types';
 
@@ -10,7 +10,7 @@ interface Props {
 }
 
 export default function AddAccountModal({ isOpen, onClose, defaultType = 'bank' }: Props) {
-    const { addAccount } = useFinance();
+    const { addAccount, showToast } = useFinance();
     const [name, setName] = useState('');
     const [balance, setBalance] = useState('');
     const [type, setType] = useState<'bank' | 'cash' | 'credit'>(defaultType === 'credit' ? 'credit' : 'bank');
@@ -19,11 +19,18 @@ export default function AddAccountModal({ isOpen, onClose, defaultType = 'bank' 
     const [limit, setLimit] = useState('');
     const [cutoffDay, setCutoffDay] = useState('');
     const [paymentDay, setPaymentDay] = useState('');
+    const [hasCard, setHasCard] = useState(false);
+    const [last4Digits, setLast4Digits] = useState('');
+    const [icon, setIcon] = useState('🏦');
+    const [color, setColor] = useState('#111111');
 
     if (!isOpen) return null;
 
     const handleSubmit = async () => {
-        if (!name) return;
+        if (!name) {
+            showToast('Por favor ingresa un nombre para la cuenta', 'error');
+            return;
+        }
 
         const newAccount: any = {
             id: crypto.randomUUID(),
@@ -31,7 +38,11 @@ export default function AddAccountModal({ isOpen, onClose, defaultType = 'bank' 
             type,
             balance: Number(balance) || 0,
             currency: 'COP',
-            owner: 'user1'
+            owner: 'user1',
+            icon,
+            color,
+            last4Digits,
+            hasCard: type === 'credit' ? true : hasCard
         };
 
         if (type === 'credit') {
@@ -46,13 +57,19 @@ export default function AddAccountModal({ isOpen, onClose, defaultType = 'bank' 
             if (newAccount.balance > 0) newAccount.balance = -newAccount.balance;
         }
 
-        await addAccount(newAccount);
+        try {
+            await addAccount(newAccount);
+            showToast('Cuenta creada con éxito', 'success');
 
-        // Reset and close
-        setName('');
-        setBalance('');
-        setLimit('');
-        onClose();
+            // Reset and close
+            setName('');
+            setBalance('');
+            setLimit('');
+            onClose();
+        } catch (error) {
+            console.error('Error adding account:', error);
+            showToast('Error al crear la cuenta', 'error');
+        }
     };
 
     return (
@@ -89,6 +106,48 @@ export default function AddAccountModal({ isOpen, onClose, defaultType = 'bank' 
                             className="input-field"
                             autoFocus
                         />
+                    </div>
+
+                    <div className="form-group">
+                        <label>Color</label>
+                        <div className="color-scroll">
+                            {['#FF9500', '#5856D6', '#007AFF', '#0070ba', '#AF52DE', '#FF2D55', '#FFCC00', '#34C759', '#14b8a6', '#FF3B30', '#64748b', '#8E8E93', '#111111'].map(c => (
+                                <button
+                                    key={c}
+                                    className={`color-btn ${color === c ? 'selected' : ''}`}
+                                    style={{ backgroundColor: c }}
+                                    onClick={() => setColor(c)}
+                                />
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="form-group">
+                        <label>Icono</label>
+                        <div className="icon-grid">
+                            {[
+                                { name: 'Landmark', Component: Landmark },
+                                { name: 'Wallet', Component: Wallet },
+                                { name: 'CreditCard', Component: CreditCard },
+                                { name: 'Banknote', Component: Banknote },
+                                { name: 'Coins', Component: Coins },
+                                { name: 'DollarSign', Component: DollarSign },
+                                { name: 'PiggyBank', Component: PiggyBank },
+                                { name: 'Briefcase', Component: Briefcase },
+                                { name: 'Smartphone', Component: Smartphone },
+                                { name: 'Building2', Component: Building2 },
+                                { name: 'Receipt', Component: Receipt }
+                            ].map(({ name, Component }) => (
+                                <button
+                                    key={name}
+                                    className={`icon-btn-select ${icon === name ? 'selected' : ''}`}
+                                    onClick={() => setIcon(name)}
+                                    title={name}
+                                >
+                                    <Component size={24} />
+                                </button>
+                            ))}
+                        </div>
                     </div>
 
                     <div className="row-group">
@@ -138,7 +197,43 @@ export default function AddAccountModal({ isOpen, onClose, defaultType = 'bank' 
                                     />
                                 </div>
                             </div>
+                            <div className="form-group" style={{ marginTop: '10px' }}>
+                                <label>Últimos 4 dígitos</label>
+                                <input
+                                    type="text"
+                                    maxLength={4}
+                                    placeholder="Ej. 1234"
+                                    value={last4Digits}
+                                    onChange={e => setLast4Digits(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                                    className="input-field"
+                                />
+                            </div>
                         </>
+                    )}
+
+                    {type !== 'credit' && (
+                        <div className="card-option-section">
+                            <div className="checkbox-row" onClick={() => setHasCard(!hasCard)}>
+                                <div className={`custom-checkbox ${hasCard ? 'checked' : ''}`}>
+                                    {hasCard && <span className="checkmark">✓</span>}
+                                </div>
+                                <span className="checkbox-label">¿Tiene tarjeta asociada?</span>
+                            </div>
+
+                            {hasCard && (
+                                <div className="form-group" style={{ marginTop: '10px' }}>
+                                    <label>Últimos 4 dígitos</label>
+                                    <input
+                                        type="text"
+                                        maxLength={4}
+                                        placeholder="Ej. 4293"
+                                        value={last4Digits}
+                                        onChange={e => setLast4Digits(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                                        className="input-field"
+                                    />
+                                </div>
+                            )}
+                        </div>
                     )}
 
                     <button onClick={handleSubmit} className="save-btn">
@@ -195,6 +290,41 @@ export default function AddAccountModal({ isOpen, onClose, defaultType = 'bank' 
             border-radius: 14px; font-weight: 600; font-size: 1rem;
             margin-top: 10px; cursor: pointer;
         }
+
+        .color-scroll {
+            display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px;
+        }
+        .color-btn {
+            min-width: 32px; height: 32px; border-radius: 50%; border: 2px solid transparent; cursor: pointer;
+        }
+        .color-btn.selected {
+            border-color: black; transform: scale(1.1);
+        }
+
+        .card-option-section { 
+            padding: 15px; background: #f8f9fa; border-radius: 16px; margin-top: 5px;
+        }
+        .checkbox-row { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+        .custom-checkbox {
+            width: 24px; height: 24px; border: 2px solid #ddd; border-radius: 6px;
+            display: flex; align-items: center; justify-content: center; background: white;
+            transition: all 0.2s;
+        }
+        .custom-checkbox.checked { background: black; border-color: black; color: white; }
+        .checkmark { font-size: 14px; font-weight: bold; }
+        .checkbox-label { font-weight: 500; font-size: 0.9rem; color: #333; }
+        
+        .icon-grid {
+            display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px;
+        }
+        .icon-btn-select {
+            background: #f3f4f6; border: 1px solid transparent; border-radius: 8px;
+            font-size: 1.2rem; padding: 6px; cursor: pointer;
+        }
+        .icon-btn-select.selected {
+            background: #e5e7eb; border-color: black; transform: scale(1.1);
+        }
+        .center-text { text-align: center; }
       `}</style>
         </div>
     );

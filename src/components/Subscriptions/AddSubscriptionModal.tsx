@@ -8,35 +8,53 @@ interface Props {
 }
 
 export default function AddSubscriptionModal({ isOpen, onClose }: Props) {
-    const { addSubscription, accounts } = useFinance();
+    const { addSubscription, accounts, categories, showToast } = useFinance();
     const [name, setName] = useState('');
     const [amount, setAmount] = useState('');
     const [frequency, setFrequency] = useState<'monthly' | 'yearly' | 'weekly'>('monthly');
     const [nextPaymentDate, setNextPaymentDate] = useState('');
     const [accountId, setAccountId] = useState('');
-    const [category, setCategory] = useState('Otros'); // Default simple category for now or let them choose
+    const [category, setCategory] = useState('');
+
+    // Filter expense categories
+    const expenseCategories = categories.filter(c => c.type === 'expense');
 
     if (!isOpen) return null;
 
     const handleSubmit = async () => {
-        if (!name || !amount || !nextPaymentDate) return;
+        if (!name || !amount || !nextPaymentDate) {
+            showToast('Por favor completa todos los campos', 'error');
+            return;
+        }
 
-        await addSubscription({
-            name,
-            amount: Number(amount),
-            frequency,
-            nextPaymentDate,
-            category: 'Utilities', // Defaulting to Utilities usually for subs
-            owner: 'user1',
-            subscriptionType: 'subscription',
-            accountId: accountId || undefined
-        });
+        if (!category) {
+            showToast('Por favor selecciona una categoría', 'error');
+            return;
+        }
 
-        // Reset and close
-        setName('');
-        setAmount('');
-        setNextPaymentDate('');
-        onClose();
+        try {
+            await addSubscription({
+                name,
+                amount: Number(amount),
+                frequency,
+                nextPaymentDate,
+                category,
+                owner: 'user1',
+                subscriptionType: 'subscription',
+                accountId: accountId || undefined
+            });
+            showToast('Suscripción creada con éxito', 'success');
+
+            // Reset and close
+            setName('');
+            setAmount('');
+            setNextPaymentDate('');
+            setCategory('');
+            onClose();
+        } catch (error) {
+            console.error('Error adding subscription:', error);
+            showToast('Error al crear la suscripción', 'error');
+        }
     };
 
     return (
@@ -93,6 +111,21 @@ export default function AddSubscriptionModal({ isOpen, onClose }: Props) {
                                 <option value="monthly">Mensual</option>
                                 <option value="yearly">Anual</option>
                                 <option value="weekly">Semanal</option>
+                            </select>
+                        </div>
+                        <div className="form-group">
+                            <label>Categoría</label>
+                            <select
+                                value={category}
+                                onChange={e => setCategory(e.target.value)}
+                                className="input-field"
+                            >
+                                <option value="">Seleccionar...</option>
+                                {expenseCategories.map(cat => (
+                                    <option key={cat.id || cat.name} value={cat.name}>
+                                        {cat.name}
+                                    </option>
+                                ))}
                             </select>
                         </div>
                     </div>

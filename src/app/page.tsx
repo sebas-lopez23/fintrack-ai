@@ -8,7 +8,7 @@ import FinancialChart from '@/components/Dashboard/FinancialChart';
 import RecentTransactions from '@/components/Dashboard/RecentTransactions';
 import YearlyFinancialChart from '@/components/Dashboard/YearlyFinancialChart';
 import AIChat from '@/components/AIChat';
-import AppTour from '@/components/Onboarding/AppTour';
+// ImportStatementModal handled in MobileLayout now
 import { Eye, EyeOff, X, Edit2, Trash2, Sparkles } from 'lucide-react';
 import MobileLayout from '@/components/Layout/MobileLayout';
 import { Subscription, Transaction, Category } from '@/types';
@@ -32,12 +32,14 @@ export default function Home() {
     deleteTransaction, // Restored
     pendingInvites,
     userId,
-    isLoading
+    isLoading,
+    userProfile
   } = useFinance();
   const [greeting, setGreeting] = useState('');
   const [showPartial, setShowPartial] = useState(false);
   const [isBalanceVisible, setIsBalanceVisible] = useState(true);
   const [isChatOpen, setIsChatOpen] = useState(false);
+  // Modal handled globally in MobileLayout via event
 
   // Auth Guard
   useEffect(() => {
@@ -125,8 +127,9 @@ export default function Home() {
         {/* Header Greeting */}
         <div className="header-greeting">
           <h1>{greeting},</h1>
-          <h2>{currentUser === 'user1' ? 'Sebas' : currentUser === 'user2' ? 'Amor' : (typeof currentUser === 'string' ? currentUser : 'Usuario')}!</h2>
+          <h2>{userProfile?.full_name?.split(' ')[0] || (currentUser === 'user1' ? 'Sebas' : currentUser === 'user2' ? 'Amor' : (typeof currentUser === 'string' ? currentUser.split('@')[0] : 'Usuario'))}!</h2>
         </div>
+
 
         {/* FAMILY INVITATION ALERT */}
         {pendingInvites.length > 0 && (
@@ -181,12 +184,15 @@ export default function Home() {
         </div>
 
         {/* Recent Transactions */}
-        <div className="transactions-section">
+        <div className="transactions-section" id="transactions-list">
           <div className="section-header">
             <h3>Transacciones Recientes</h3>
             <button className="see-all" onClick={() => router.push('/transactions')}>Ver todo</button>
           </div>
-          <RecentTransactions onTransactionClick={handleTransactionClick} />
+          <RecentTransactions
+            onTransactionClick={handleTransactionClick}
+            onImport={() => window.dispatchEvent(new CustomEvent('open-import-modal'))}
+          />
         </div>
 
         {/* Yearly Financial Chart */}
@@ -409,7 +415,7 @@ export default function Home() {
         {/* AI Chat Modal */}
         <AIChat isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
 
-        <AppTour />
+
 
         <style jsx>{`
           .dashboard-container {
@@ -434,19 +440,34 @@ export default function Home() {
           h2 {
             font-size: 34px;
             font-weight: 700;
-            color: var(--color-text, #000);
+            color: var(--color-text-main);
             margin: 0;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
           }
 
           .balance-card {
-            background: linear-gradient(135deg, #E0C3FC 0%, #8EC5FC 100%);
-            border-radius: 24px;
-            padding: 24px;
+            background: linear-gradient(135deg, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0.4) 100%);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.6);
+            border-radius: 32px;
+            padding: 32px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            box-shadow: 0 8px 20px rgba(142, 197, 252, 0.25);
-            color: #1C1C1E;
+            box-shadow: 0 20px 50px -10px rgba(99, 102, 241, 0.25);
+            color: var(--color-text-main);
+            position: relative;
+            overflow: hidden;
+          }
+          
+          .balance-card::before {
+             content: '';
+             position: absolute;
+             top: 0; left: 0; right: 0; bottom: 0;
+             background: linear-gradient(45deg, transparent, rgba(255,255,255,0.4), transparent);
+             transform: translateX(-100%);
+             transition: 0.5s;
           }
 
           .balance-info {
@@ -499,11 +520,13 @@ export default function Home() {
           .see-all {
             background: none;
             border: none;
-            color: #007AFF;
+            color: var(--color-primary);
             font-size: 15px;
-            font-weight: 500;
+            font-weight: 600;
             cursor: pointer;
+            transition: opacity 0.2s;
           }
+          .see-all:hover { opacity: 0.8; }
 
           .transactions-section {
             margin-top: 8px;
@@ -516,7 +539,8 @@ export default function Home() {
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0,0,0,0.5);
+            background: rgba(15, 23, 42, 0.3); /* Darker, blurrier overlay */
+            backdrop-filter: blur(8px);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -525,18 +549,22 @@ export default function Home() {
           }
 
           .modal-content {
-            background: var(--color-surface, white);
-            border-radius: 24px;
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid white;
+            border-radius: 32px;
             width: 100%;
             max-width: 500px;
             max-height: 90vh;
             overflow-y: auto;
-            animation: scaleIn 0.2s ease-out;
+            animation: scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
           }
 
           @keyframes scaleIn {
-            from { opacity: 0; transform: scale(0.95); }
-            to { opacity: 1; transform: scale(1); }
+            from { opacity: 0; transform: scale(0.9) translateY(20px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
           }
 
           .modal-header {
@@ -669,13 +697,15 @@ export default function Home() {
           }
 
           .edit-btn {
-            background: #007AFF;
+            background: var(--color-primary);
             color: white;
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
           }
 
           .delete-btn {
-            background: #FF3B30;
-            color: white;
+            background: rgba(239, 68, 68, 0.1); /* Soft red bg */
+            color: var(--color-danger);
+            border: 1px solid var(--color-danger);
           }
 
           /* Form Styles */
@@ -719,17 +749,21 @@ export default function Home() {
           }
 
           input, select, textarea {
-            padding: 12px;
-            border: 1px solid var(--color-border, #E5E5EA);
-            border-radius: 10px;
+            padding: 14px;
+            border: 2px solid transparent;
+            border-radius: 16px;
             font-size: 16px;
-            background: var(--color-surface, white);
-            color: var(--color-text, #000);
+            background: rgba(241, 245, 249, 0.5);
+            color: var(--color-text-main);
             outline: none;
+            transition: all 0.2s;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
           }
 
           input:focus, select:focus, textarea:focus {
-            border-color: #007AFF;
+            background: white;
+            border-color: var(--color-primary-light);
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
           }
 
           textarea {
@@ -754,13 +788,14 @@ export default function Home() {
           }
 
           .cancel-btn {
-            background: var(--color-bg, #F2F2F7);
-            color: var(--color-text, #000);
+            background: rgba(0,0,0,0.05);
+            color: var(--color-text-secondary);
           }
 
           .save-btn {
-            background: #007AFF;
+            background: var(--color-primary);
             color: white;
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
           }
 
           /* AI Chat Button */

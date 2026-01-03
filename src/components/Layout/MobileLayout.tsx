@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import TopBar from './TopBar';
 import FAB from '../Dashboard/FAB';
 import AddTransactionModal from '../Transaction/AddTransactionModal';
+import ImportStatementModal from '../Transaction/ImportStatementModal';
 import Sidebar from '../Navigation/Sidebar';
 import { Search as SearchIcon, X, Bell } from 'lucide-react';
 
@@ -16,16 +17,28 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'manual' | 'voice' | 'camera'>('manual');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false); // PDF Modal State
 
   // New States
   const [showNotifications, setShowNotifications] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const handleOpenModal = (mode: 'manual' | 'voice' | 'camera') => {
+  const handleOpenModal = (mode: 'manual' | 'voice' | 'camera' | 'pdf') => {
+    if (mode === 'pdf') {
+      setIsImportModalOpen(true);
+      return;
+    }
     setModalMode(mode);
     setIsModalOpen(true);
   };
+
+  // Listen for custom event from child components (e.g., RecentTransactions empty state)
+  useEffect(() => {
+    const handleOpenImport = () => setIsImportModalOpen(true);
+    window.addEventListener('open-import-modal', handleOpenImport);
+    return () => window.removeEventListener('open-import-modal', handleOpenImport);
+  }, []);
 
   const handleProfileClick = () => {
     router.push('/profile');
@@ -108,12 +121,17 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
         initialMode={modalMode}
       />
 
+      <ImportStatementModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+      />
+
       <style jsx>{`
         .mobile-layout {
           display: flex;
           flex-direction: column;
           min-height: 100vh;
-          background-color: var(--color-bg, #F2F2F7);
+          /* Background handled by body mesh */
           position: relative;
           overflow-x: hidden;
         }
@@ -129,19 +147,23 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
         /* Search Bar Styles */
         .search-bar-overlay {
           padding: 12px 20px;
-          background: var(--color-bg, #F2F2F7);
+          background: transparent;
           position: sticky;
           top: 0;
           z-index: 35;
         }
 
         .search-input-wrapper {
-          background: var(--color-border, #E3E3E8);
-          border-radius: 10px;
+          background: var(--glass-surface); /* Glass input */
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
+          border: 1px solid var(--glass-border);
+          border-radius: var(--radius-md);
           display: flex;
           align-items: center;
-          padding: 8px 12px;
-          gap: 8px;
+          padding: 10px 16px;
+          gap: 12px;
+          box-shadow: var(--shadow-sm);
         }
 
         .search-icon { color: var(--color-text-muted, #8E8E93); }
@@ -171,12 +193,15 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
           top: 70px;
           right: 20px;
           width: 300px;
-          background: var(--color-surface, white);
-          border-radius: 16px;
-          box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+          background: rgba(255, 255, 255, 0.9);
+          backdrop-filter: blur(20px);
+          -webkit-backdrop-filter: blur(20px);
+          border: 1px solid white;
+          border-radius: var(--radius-lg);
+          box-shadow: 0 10px 40px rgba(0,0,0,0.15);
           z-index: 41;
           overflow: hidden;
-          animation: slideDown 0.2s ease-out;
+          animation: slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
         @keyframes slideDown {

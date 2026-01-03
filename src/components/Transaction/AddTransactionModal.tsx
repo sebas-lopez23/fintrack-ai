@@ -2,19 +2,20 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useFinance } from '@/context/FinanceContext';
-import { CategoryItem } from '@/types';
 import { TransactionType, Category } from '@/types';
-import { X, Check, Mic, Camera, AlertCircle, Plus } from 'lucide-react';
+import { X, Mic, Camera, AlertCircle, Plus } from 'lucide-react';
 import { processAudioTransaction, processImageTransaction } from '@/services/geminiService';
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
   initialMode?: 'manual' | 'voice' | 'camera';
+  defaultType?: TransactionType;
+  preSelectedAccountId?: string;
 }
 
-export default function AddTransactionModal({ isOpen, onClose, initialMode = 'manual' }: Props) {
-  const { addTransaction, addTransfer, accounts, currentUser, categories, addCategory } = useFinance();
+export default function AddTransactionModal({ isOpen, onClose, initialMode = 'manual', defaultType, preSelectedAccountId }: Props) {
+  const { addTransaction, addTransfer, accounts, currentUser, categories, addCategory, showToast } = useFinance();
 
   const [type, setType] = useState<TransactionType>('expense');
   const [amount, setAmount] = useState('');
@@ -38,26 +39,7 @@ export default function AddTransactionModal({ isOpen, onClose, initialMode = 'ma
   // Filter categories based on active type
   const visibleCategories = categories.filter(c => c.type === type);
 
-  // Initialize defaults
-  useEffect(() => {
-    if (isOpen) {
-      if (accounts.length > 0) {
-        setAccountId(accounts[0].id);
-        if (accounts.length > 1) setDestinationAccountId(accounts[1].id);
-      }
 
-      // Auto-select first visible category when type changes or categories load
-      const firstCat = categories.find(c => c.type === type);
-      if (firstCat) setCategory(firstCat.name);
-
-      setAmount('');
-      setNote('');
-      setInstallments(1);
-
-      if (initialMode === 'voice') handleVoiceCapture();
-      else if (initialMode === 'camera') handleCameraCapture();
-    }
-  }, [isOpen, initialMode, accounts, categories, type]); // Added type to deps to re-select category
 
   // Cleanup
   useEffect(() => {
@@ -130,7 +112,7 @@ export default function AddTransactionModal({ isOpen, onClose, initialMode = 'ma
         }
       }, 5000);
 
-    } catch (err) {
+    } catch {
       setError('Sin acceso al micrófono.');
       setIsProcessing(false);
     }
@@ -152,7 +134,7 @@ export default function AddTransactionModal({ isOpen, onClose, initialMode = 'ma
         videoRef.current.play();
       }
       setIsProcessing(false);
-    } catch (err) {
+    } catch {
       setError('Sin acceso a cámara.');
       setIsProcessing(false);
     }
@@ -194,21 +176,74 @@ export default function AddTransactionModal({ isOpen, onClose, initialMode = 'ma
             }
 
             setIsProcessing(false);
-          } catch (err) {
+          } catch {
             setError('Error al procesar imagen');
             setIsProcessing(false);
           }
         }, 'image/jpeg', 0.8);
       }
-    } catch (err) {
+    } catch {
       setError('Error al capturar');
       setIsProcessing(false);
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Initialize defaults (Moved here to access handler functions)
+  useEffect(() => {
+    if (isOpen) {
+      if (defaultType) setType(defaultType);
+
+      if (preSelectedAccountId) {
+        setAccountId(preSelectedAccountId);
+        // Default destination to first distinct account
+        const dest = accounts.find(a => a.id !== preSelectedAccountId);
+        if (dest) setDestinationAccountId(dest.id);
+      } else if (accounts.length > 0) {
+        setAccountId(accounts[0].id);
+        if (accounts.length > 1) setDestinationAccountId(accounts[1].id);
+      }
+
+      // Auto-select first visible category when type changes or categories load
+      const currentType = defaultType || type; // Use default if fresh
+      const firstCat = categories.find(c => c.type === currentType);
+      if (firstCat) setCategory(firstCat.name);
+
+      setAmount('');
+      setNote('');
+      setInstallments(1);
+      setIsSubmitting(false);
+
+      // Disable linting deps because we don't want to recreate these functions or trigger loops
+      if (initialMode === 'voice') handleVoiceCapture();
+      else if (initialMode === 'camera') handleCameraCapture();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, initialMode, accounts, categories, defaultType, preSelectedAccountId]);
+
+
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!amount) return;
+
+    // Validations
+    if (!accountId) {
+      showToast('Por favor selecciona una cuenta', 'error');
+      return;
+    }
+    if (!note.trim()) {
+      showToast('Por favor ingresa una descripción', 'error');
+      return;
+    }
+    if (type !== 'transfer' && !category) {
+      showToast('Por favor selecciona una categoría', 'error');
+      return;
+    }
+    if (Number(amount) <= 0) {
+      showToast('Ingresa un monto válido', 'error');
+      return;
+    }
 
     // Handle Local Date
     const [y, m, d] = date.split('-').map(Number);
@@ -216,44 +251,56 @@ export default function AddTransactionModal({ isOpen, onClose, initialMode = 'ma
     const localDate = new Date(y, m - 1, d, now.getHours(), now.getMinutes());
     const finalDate = localDate.toISOString();
 
-    if (type === 'transfer') {
-      if (!accountId || !destinationAccountId || accountId === destinationAccountId) {
-        setError('Selecciona cuentas de origen y destino válidas');
-        return;
+    setIsSubmitting(true);
+
+    try {
+      if (type === 'transfer') {
+        if (!destinationAccountId || accountId === destinationAccountId) {
+          showToast('Selecciona cuentas de origen y destino válidas', 'error');
+          setIsSubmitting(false);
+          return;
+        }
+
+        const selectedAccount = accounts.find(acc => acc.id === accountId);
+        const transactionOwner = selectedAccount?.owner || (currentUser === 'joint' ? 'shared' : currentUser);
+
+        await addTransfer({
+          amount: Number(amount),
+          sourceAccountId: accountId,
+          destinationAccountId: destinationAccountId,
+          date: finalDate,
+          note: note || 'Transferencia',
+          createdBy: transactionOwner
+        });
+        showToast('Transferencia creada con éxito', 'success');
+
+      } else {
+        // Normal Transaction
+        const selectedAccount = accounts.find(acc => acc.id === accountId);
+        const transactionOwner = selectedAccount?.owner || (currentUser === 'joint' ? 'shared' : currentUser);
+
+        await addTransaction({
+          amount: Number(amount),
+          type,
+          category: category as Category,
+          accountId,
+          date: finalDate,
+          owner: transactionOwner,
+          note,
+          installments: selectedAccount?.type === 'credit' && installments > 1 ? { current: 1, total: installments } : undefined
+        });
+        console.log('✅ Transaction created successfully');
+        showToast('Transacción creada con éxito', 'success');
       }
-
-      const selectedAccount = accounts.find(acc => acc.id === accountId);
-      const transactionOwner = selectedAccount?.owner || (currentUser === 'joint' ? 'shared' : currentUser);
-
-      addTransfer({
-        amount: Number(amount),
-        sourceAccountId: accountId,
-        destinationAccountId: destinationAccountId,
-        date: finalDate,
-        note: note || 'Transferencia',
-        createdBy: transactionOwner // Assuming mapping, but actually backend handles createdBy from auth. owner field is for view filters.
-      });
-
-    } else {
-      // Normal Transaction
-      if (!accountId || !category) return;
-
-      const selectedAccount = accounts.find(acc => acc.id === accountId);
-      const transactionOwner = selectedAccount?.owner || (currentUser === 'joint' ? 'shared' : currentUser);
-
-      addTransaction({
-        amount: Number(amount),
-        type,
-        category: category as Category,
-        accountId,
-        date: finalDate,
-        owner: transactionOwner,
-        note,
-        installments: selectedAccount?.type === 'credit' && installments > 1 ? { current: 1, total: installments } : undefined
-      });
+      // Delay closing slightly to Ensure user sees feedback if needed, 
+      // but Toast persists anyway. 
+      // Important: resetting submitting state if we don't close immediately.
+      handleClose();
+    } catch (error) {
+      console.error('Error adding transaction:', error);
+      showToast('Error al crear la transacción', 'error');
+      setIsSubmitting(false);
     }
-
-    handleClose();
   };
 
   const handleClose = () => {
@@ -434,9 +481,9 @@ export default function AddTransactionModal({ isOpen, onClose, initialMode = 'ma
             <button
               type="submit"
               className="submit-btn"
-              disabled={!amount || (type !== 'transfer' && !category) || (type === 'transfer' && (!accountId || !destinationAccountId || accountId === destinationAccountId))}
+              disabled={isSubmitting || !amount || (type !== 'transfer' && !category) || (type === 'transfer' && (!accountId || !destinationAccountId || accountId === destinationAccountId))}
             >
-              Guardar Transacción
+              {isSubmitting ? 'Guardando...' : 'Guardar Transacción'}
             </button>
           </form>
         )}

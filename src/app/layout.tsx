@@ -1,6 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { FinanceProvider } from "@/context/FinanceContext";
+import { OnboardingProvider } from "@/context/OnboardingContext";
+import OnboardingGuard from '@/components/Onboarding/OnboardingGuard';
+import GlobalTour from '@/components/Onboarding/GlobalTour';
 import "./globals.css";
 
 const geistSans = Geist({
@@ -42,10 +45,15 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <FinanceProvider>
-          {children}
-        </FinanceProvider>
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`} suppressHydrationWarning>
+        <div className="bg-mesh" />
+        <OnboardingProvider>
+          <OnboardingGuard />
+          <GlobalTour />
+          <FinanceProvider>
+            {children}
+          </FinanceProvider>
+        </OnboardingProvider>
       </body>
     </html>
   );

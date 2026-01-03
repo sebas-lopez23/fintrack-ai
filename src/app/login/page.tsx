@@ -14,6 +14,7 @@ export default function LoginPage() {
   const [error, setError] = useState('');
 
   // Auto-login for development
+  // Auto-login for development
   React.useEffect(() => {
     if (process.env.NODE_ENV === 'development') {
       const autoLogin = async () => {
@@ -147,19 +148,20 @@ export default function LoginPage() {
           display: flex;
           align-items: center;
           justify-content: center;
-          background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
           padding: 20px;
+          /* Background handled by layout.tsx mesh */
         }
 
         .login-card {
-          background: rgba(255, 255, 255, 0.05);
-          backdrop-filter: blur(10px);
-          border: 1px solid rgba(255, 255, 255, 0.1);
+          background: var(--glass-surface);
+          backdrop-filter: blur(20px);
+          -webkit-backdrop-filter: blur(20px);
+          border: 1px solid var(--glass-border);
           padding: 40px;
-          border-radius: 24px;
+          border-radius: 32px;
           width: 100%;
           max-width: 400px;
-          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+          box-shadow: var(--shadow-glass);
         }
 
         .logo-section {
@@ -173,14 +175,14 @@ export default function LoginPage() {
         }
 
         h1 {
-          color: white;
+          color: var(--color-text-main);
           font-size: 1.8rem;
           font-weight: 700;
           margin-bottom: 5px;
         }
 
         p {
-          color: #94a3b8;
+          color: var(--color-text-secondary);
         }
 
         .auth-form {
@@ -198,41 +200,44 @@ export default function LoginPage() {
           left: 12px;
           top: 50%;
           transform: translateY(-50%);
-          color: #94a3b8;
+          color: var(--color-text-light);
         }
 
         input {
           width: 100%;
           padding: 12px 12px 12px 44px;
-          background: rgba(0, 0, 0, 0.2);
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          border-radius: 12px;
-          color: white;
+          background: rgba(255, 255, 255, 0.5);
+          border: 1px solid var(--glass-border);
+          border-radius: 16px;
+          color: var(--color-text-main);
           font-size: 1rem;
           outline: none;
           transition: all 0.3s;
         }
 
         input:focus {
-          border-color: #3b82f6;
-          box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+          border-color: var(--color-primary);
+          background: white;
+          box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
         }
 
         .submit-btn {
-          background: #3b82f6;
+          background: var(--color-primary);
           color: white;
-          padding: 12px;
-          border-radius: 12px;
+          padding: 14px;
+          border-radius: 99px;
           font-weight: 600;
           margin-top: 10px;
           display: flex;
           justify-content: center;
           align-items: center;
-          transition: background 0.3s;
+          transition: all 0.3s;
+          box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
         }
 
         .submit-btn:hover {
-          background: #2563eb;
+          background: var(--color-primary-dark);
+          transform: translateY(-2px);
         }
 
         .divider {
@@ -240,14 +245,14 @@ export default function LoginPage() {
           align-items: center;
           text-align: center;
           margin: 24px 0;
-          color: #64748b;
+          color: var(--color-text-light);
           font-size: 0.875rem;
         }
 
         .divider::before, .divider::after {
           content: '';
           flex: 1;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+          border-bottom: 1px solid var(--glass-border);
         }
 
         .divider span {
@@ -266,25 +271,28 @@ export default function LoginPage() {
           justify-content: center;
           gap: 12px;
           padding: 12px;
-          background: white;
-          border-radius: 12px;
-          color: #1e293b;
+          background: rgba(255,255,255,0.6);
+          border: 1px solid white;
+          border-radius: 16px;
+          color: var(--color-text-main);
           font-weight: 500;
           transition: transform 0.2s;
         }
 
         .social-btn:hover {
           transform: translateY(-2px);
+          background: white;
         }
 
         .toggle-auth {
           margin-top: 24px;
           text-align: center;
           font-size: 0.875rem;
+          color: var(--color-text-secondary);
         }
 
         .toggle-auth button {
-          color: #3b82f6;
+          color: var(--color-primary);
           font-weight: 600;
           margin-left: 5px;
         }
@@ -294,10 +302,10 @@ export default function LoginPage() {
         }
 
         .error-msg {
-          background: rgba(239, 68, 68, 0.1);
-          color: #ef4444;
+          background: var(--color-danger-soft);
+          color: var(--color-danger);
           padding: 10px;
-          border-radius: 8px;
+          border-radius: 12px;
           font-size: 0.875rem;
           text-align: center;
         }

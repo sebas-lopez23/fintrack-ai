@@ -56,8 +56,14 @@ export interface Account {
     limit?: number;
     cutoffDate?: number;
     paymentDate?: number;
+    interestRate?: number; // Monthly interest rate percentage (e.g., 2.5 for 2.5%)
+    interestFreeOnSinglePayment?: boolean; // No interest on 1-installment purchases
     handlingFee?: number;
     is4x1000Exempt?: boolean;
+    icon?: string;
+    color?: string;
+    last4Digits?: string;
+    hasCard?: boolean;
 }
 
 export interface Budget {
@@ -78,6 +84,8 @@ export interface Subscription {
     description?: string;
     accountId?: string;
     isActive?: boolean;
+    icon?: string;
+    color?: string;
 }
 
 export interface Investment {

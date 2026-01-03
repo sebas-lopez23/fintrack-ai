@@ -2,119 +2,129 @@ import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 // Initialize Gemini if key exists
-const apiKey = process.env.GOOGLE_API_KEY;
+const apiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
 const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
 
 export async function POST(req: NextRequest) {
     try {
+        if (!genAI) {
+            return NextResponse.json({
+                error: 'API Key de Gemini no configurada. Por favor revisa las variables de entorno.'
+            }, { status: 500 });
+        }
+
         const formData = await req.formData();
         const file = formData.get('file') as File;
-        const textContent = formData.get('text') as string; // Ideally client sends text if parsed client-side, or we parse here.
 
-        if (!file && !textContent) {
-            return NextResponse.json({ error: 'No content provided' }, { status: 400 });
+        if (!file) {
+            return NextResponse.json({ error: 'No se proporcionó archivo PDF' }, { status: 400 });
         }
 
-        let rawText = textContent || '';
-
-        // If file is provided and we need to parse it (PDF parsing on edge/server is tricky without libs)
-        // For this demo, we'll assume the client extracts text OR sends a CSV string.
-        // Or we use a simple text buffer read if it's text/csv.
-
-        if (file && !textContent) {
-            const bytes = await file.arrayBuffer();
-            const buffer = Buffer.from(bytes);
-            rawText = buffer.toString('utf-8'); // Works for CSV/Text. For PDF we'd need pdf-parse.
+        if (file.type !== 'application/pdf') {
+            return NextResponse.json({ error: 'Solo se aceptan archivos PDF' }, { status: 400 });
         }
 
-        // --- AI PROCESSING ---
-        if (genAI) {
-            const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-            const prompt = `
-                Analyze the following financial statement text and extract transactions.
-                Return ONLY a valid JSON array of objects with this structure:
-                {
-                    "date": "YYYY-MM-DD",
-                    "merchant": "string",
-                    "amount": number (positive),
-                    "type": "income" | "expense",
-                    "category": "string" (Suggest a category from: Food, Transport, Housing, Entertainment, Shopping, Health, Education, Salary, Utilities, Other)
+        console.log('Processing PDF with Gemini...');
+
+        // Convert PDF to base64 for inline data
+        const bytes = await file.arrayBuffer();
+        const base64Data = Buffer.from(bytes).toString('base64');
+
+        // Use Gemini 2.0 Flash Experimental with PDF support
+        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
+
+        const prompt = `
+Analiza este extracto bancario en formato PDF y extrae TODAS las transacciones y la información de la cuenta.
+
+**INSTRUCCIONES CRÍTICAS:**
+1. **Estructura del PDF**: El documento tiene una tabla con columnas: FECHA | TIPO TRANSACCIÓN | CRÉDITOS | DÉBITOS | SALDOS
+2. **Extraer TODO**: Extrae CADA FILA de transacción visible en la tabla, sin omitir ninguna
+3. **Formato de Números Colombianos**: 
+   - Separador de miles: punto (.)
+   - Separador decimal: coma (,)
+   - Ejemplo: "43.800,00" = 43800 pesos
+   - Ejemplo: "900.000,00" = 900000 pesos
+4. **Formato de Fecha**: DD/MM/YYYY → convertir a YYYY-MM-DD
+5. **Tipo de Transacción**:
+   - Si hay valor en columna DÉBITOS → type: "expense"
+   - Si hay valor en columna CRÉDITOS → type: "income"
+6. **CATEGORÍAS - REGLAS INTELIGENTES**:
+   Clasifica según palabras clave en la descripción del comercio:
+   - **Food**: Subway, McDonald, Crepes, Valdez,Éxito, Carulla, Jumbo, Ara, D1, Mercadoli, Panadería, Restaurante
+   - **Transport**: Uber, Didi, Beat, Gasolina, Terpel, Mobil, Peaje, Parqueadero, SOAT
+   - **Housing**: Arriendo, Alquiler, Administración, Canon
+   - **Entertainment**: Netflix, Spotify, Disney, HBO, Cinemark, Procinal, Bar, Concierto
+   - **Shopping**: Zara, H&M, Adidas, Nike, Falabella, Compra Web, Compra NAL, Datafono, Mercado Libre
+   - **Health**: Farmacia, Cruz Verde, Farmatodo, Hospital, Clínica, EPS, Drogas
+   - **Education**: Universidad, Colegio, Curso, Platzi, Udemy, Librería
+   - **Salary**: Nómina, Salario, Transferencia (si CRÉDITO grande), Honorarios, Intereses Cuenta
+   - **Utilities**: Codensa, Enel, Gas Natural, EPM, Claro, Movistar, Tigo, ETB, Acueducto
+   - **Other**: Todo lo demás que no encaje claramente
+7. **Metadata**: Extrae saldo final, moneda (COP), período
+
+**FORMATO DE SALIDA (JSON):**
+{
+  "meta": {
+    "balance": 2884559.05,
+    "currency": "COP",
+    "account_number": "****4354",
+    "period": "Enero 2025"
+  },
+  "transactions": [
+    { "date": "2025-01-02", "merchant": "INGRESO POR INTERESES CUENTA DE AHORRO", "amount": 1.24, "type": "income", "category": "Other" },
+    { "date": "2025-01-02", "merchant": "ABONO TRANSFERENCIA OTRO BANCO", "amount": 900000, "type": "income", "category": "Salary" },
+    { "date": "2025-01-02", "merchant": "COMPRA NAL SUBWAY PAGO MERCADOLI MEDELL", "amount": 43800, "type": "expense", "category": "Food" }
+  ]
+}
+
+**MUY IMPORTANTE**: 
+- Retorna SOLO el JSON, sin bloques de código markdown
+- Incluye TODAS las transacciones que veas en el PDF
+- Los montos deben ser números, no strings
+`;
+
+        const result = await model.generateContent([
+            {
+                inlineData: {
+                    mimeType: 'application/pdf',
+                    data: base64Data
                 }
+            },
+            { text: prompt }
+        ]);
 
-                Text to analyze:
-                ${rawText.substring(0, 10000)}
-            `;
+        const response = result.response;
+        const text = response.text();
 
-            const result = await model.generateContent(prompt);
-            const response = await result.response;
-            const text = response.text();
+        console.log('Gemini Response received, parsing...');
 
-            // Cleanup markdown
-            const jsonStr = text.replace(/```json/g, '').replace(/```/g, '').trim();
-            const transactions = JSON.parse(jsonStr);
+        // Cleanup markdown artifacts
+        const jsonStr = text.replace(/```json/g, '').replace(/```/g, '').trim();
 
-            return NextResponse.json({ transactions });
-        }
+        try {
+            const parsed = JSON.parse(jsonStr);
+            const transactions = Array.isArray(parsed) ? parsed : (parsed.transactions || []);
+            const meta = Array.isArray(parsed) ? {} : (parsed.meta || {});
 
-        // --- FALLBACK (REGEX HEURISTICS) ---
-        // If no API key, use a smart regex parser
-        const transactions = [];
-        const lines = rawText.split('\n');
+            console.log(`Successfully extracted ${transactions.length} transactions`);
 
-        // Common formats: Date Description Amount OR Description Amount
-        const dateRegex = /(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/;
-        const amountRegex = /([$€£])?\s?-?(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{2}))/;
+            return NextResponse.json({ transactions, meta });
+        } catch (jsonError) {
+            console.error('JSON Parse Error:', jsonError);
+            console.log('Raw AI Response:', text.substring(0, 500));
 
-        for (const line of lines) {
-            const dateMatch = line.match(dateRegex);
-            const amountMatch = line.match(amountRegex);
-
-            if (dateMatch && amountMatch) {
-                const dateStr = dateMatch[0];
-                const amountStr = amountMatch[2].replace(/[.,](?=\d{3})/g, '').replace(',', '.');
-                let amount = parseFloat(amountStr);
-
-                // Description is what's left
-                let merchant = line.replace(dateStr, '').replace(amountMatch[0], '').trim();
-                // cleanup garbage
-                merchant = merchant.replace(/[\d{2}:\d{2}]/g, '').trim();
-
-                if (merchant.length > 3) {
-                    // Guess Category
-                    let cat = 'Other';
-                    const m = merchant.toLowerCase();
-                    if (m.includes('uber') || m.includes('gas') || m.includes('bus')) cat = 'Transport';
-                    else if (m.includes('rest') || m.includes('food') || m.includes('rapp')) cat = 'Food';
-                    else if (m.includes('netfl') || m.includes('spotify') || m.includes('cine')) cat = 'Entertainment';
-                    else if (m.includes('super') || m.includes('mercado') || m.includes('exito')) cat = 'Food';
-                    else if (m.includes('transf')) cat = 'Income'; // Simple guess
-
-                    transactions.push({
-                        date: new Date().toISOString().split('T')[0], // Mock date parsing for demo
-                        merchant,
-                        amount: Math.abs(amount),
-                        type: cat === 'Income' ? 'income' : 'expense',
-                        category: cat === 'Income' ? 'Salary' : cat
-                    });
-                }
-            }
-        }
-
-        // If regex failed (likely because rawText wasn't good), return a mock for demo purposes so user sees UI
-        if (transactions.length === 0) {
             return NextResponse.json({
-                transactions: [
-                    { date: '2025-12-01', merchant: 'Uber Trip', amount: 15200, type: 'expense', category: 'Transport' },
-                    { date: '2025-12-02', merchant: 'Netflix Subscription', amount: 35000, type: 'expense', category: 'Entertainment' },
-                    { date: '2025-12-03', merchant: 'Carulla Mercado', amount: 120500, type: 'expense', category: 'Food' },
-                    { date: '2025-12-03', merchant: 'Transferencia Bancolombia', amount: 2500000, type: 'income', category: 'Salary' },
-                ]
-            });
+                error: 'Error al parsear respuesta de Gemini',
+                raw: text.substring(0, 200)
+            }, { status: 500 });
         }
 
-        return NextResponse.json({ transactions });
+    } catch (e: any) {
+        console.error('API Error:', e);
 
-    } catch (e) {
-        return NextResponse.json({ error: 'Processing failed', details: String(e) }, { status: 500 });
+        return NextResponse.json({
+            error: 'Error procesando el PDF',
+            details: e.message
+        }, { status: 500 });
     }
 }

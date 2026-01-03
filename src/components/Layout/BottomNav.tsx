@@ -10,7 +10,7 @@ export default function BottomNav() {
 
   const links = [
     { href: '/', label: 'Inicio', icon: <LayoutDashboard size={20} /> },
-    { href: '/accounts', label: 'Cuentas', icon: <Wallet size={20} /> },
+    { href: '/accounts', label: 'Billetera', icon: <Wallet size={20} /> },
     { href: '/analysis', label: 'Análisis', icon: <PieChart size={20} /> },
     { href: '/investments', label: 'Inversión', icon: <TrendingUp size={20} /> },
     // Chatbot as a separate floating button or nav item? 

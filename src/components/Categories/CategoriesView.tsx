@@ -1,21 +1,15 @@
-'use client';
-
 import React, { useState } from 'react';
-import MobileLayout from '@/components/Layout/MobileLayout';
 import { useFinance } from '@/context/FinanceContext';
 import { CategoryItem } from '@/types';
-import { Plus, Edit2, Trash2, X, Check, Home } from 'lucide-react';
-import CategoryPieChart from '@/components/Categories/CategoryPieChart';
-import CategoryDetailModal from '@/components/Categories/CategoryDetailModal';
-import TimeRangeSelector from '@/components/Shared/TimeRangeSelector';
+import { Plus, Edit2, Trash2, X, Check } from 'lucide-react';
+import CategoryDetailModal from './CategoryDetailModal';
 
-export default function CategoriesPage() {
+export default function CategoriesView() {
     const { categories, transactions, addCategory, updateCategory, deleteCategory, showToast } = useFinance();
     const [activeTab, setActiveTab] = useState<'expense' | 'income'>('expense');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingCategory, setEditingCategory] = useState<CategoryItem | null>(null);
     const [detailCategory, setDetailCategory] = useState<CategoryItem | null>(null);
-    const [dateRange, setDateRange] = useState<{ start: Date; end: Date } | null>(null);
     const [formData, setFormData] = useState<Partial<CategoryItem>>({
         type: 'expense',
         color: '#8E8E93',
@@ -61,6 +55,7 @@ export default function CategoriesPage() {
         }
 
         try {
+            let message = '';
             if (editingCategory && editingCategory.id) {
                 await updateCategory(editingCategory.id, {
                     name: formData.name,
@@ -68,7 +63,7 @@ export default function CategoriesPage() {
                     icon: formData.icon,
                     color: formData.color
                 });
-                showToast('Categoría actualizada con éxito', 'success');
+                message = 'Categoría actualizada con éxito';
             } else {
                 await addCategory({
                     name: formData.name,
@@ -76,11 +71,17 @@ export default function CategoriesPage() {
                     icon: formData.icon || '🏷️',
                     color: formData.color
                 });
-                showToast('Categoría creada con éxito', 'success');
+                message = 'Categoría creada con éxito';
             }
+
             setIsModalOpen(false);
             setEditingCategory(null);
             setFormData({ type: activeTab, color: '#8E8E93', icon: '🏷️' });
+
+            // Show toast after modal closes to ensure visibility
+            setTimeout(() => {
+                showToast(message, 'success');
+            }, 300);
         } catch (e: any) {
             showToast('Error al guardar categoría: ' + e.message, 'error');
             console.error(e);
@@ -110,21 +111,13 @@ export default function CategoriesPage() {
         return map[iconName || ''] || iconName || '🏷️';
     };
 
-    // Filter transactions by Date Range
-    const chartTransactions = transactions.filter(tx => {
-        if (!dateRange) return true;
-        const txDate = new Date(tx.date);
-        return txDate >= dateRange.start && txDate <= dateRange.end;
-    });
-
     return (
-        <MobileLayout>
+        <div className="categories-view">
             <div className="page-header">
+                {/* Header logic can be simplifed here since parent handles nav */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <button onClick={() => window.location.href = '/'} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>
-                        <Home size={24} color="#007AFF" />
-                    </button>
-                    <h1>Categorías</h1>
+                    {/* Removed Home button as it's partial view now */}
+                    <h2>Categorías</h2>
                 </div>
                 <button className="add-btn" onClick={() => {
                     setEditingCategory(null);
@@ -149,19 +142,6 @@ export default function CategoriesPage() {
                     Ingresos
                 </button>
             </div>
-
-            {/* Date Filter */}
-            <TimeRangeSelector
-                onChange={(range) => setDateRange({ start: range.start, end: range.end })}
-                initialRange="month"
-            />
-
-            {/* Visual Chart */}
-            <CategoryPieChart
-                transactions={chartTransactions}
-                categories={categories}
-                type={activeTab}
-            />
 
             <div className="categories-list">
                 {filteredCategories.length === 0 ? (
@@ -273,13 +253,16 @@ export default function CategoriesPage() {
             )}
 
             <style jsx>{`
+                .categories-view {
+                    padding-bottom: 80px;
+                }
                 .page-header {
                     display: flex;
                     justify-content: space-between;
                     align-items: center;
                     margin-bottom: 16px;
                 }
-                h1 { font-size: 28px; font-weight: 700; margin: 0; }
+                h2 { font-size: 20px; font-weight: 700; margin: 0; }
                 .add-btn {
                     width: 40px; height: 40px;
                     border-radius: 50%;
@@ -408,7 +391,7 @@ export default function CategoriesPage() {
                     width: 44px;
                     height: 44px;
                     border-radius: 10px;
-                    border: 1px solid #E5E5EA;
+                    border: 1.5px solid #E5E5EA;
                     background: white;
                     display: flex;
                     align-items: center;
@@ -424,13 +407,13 @@ export default function CategoriesPage() {
                 .icon-btn.selected {
                     background: #007AFF; color: white; border-color: #007AFF;
                 }
-                }
+                
                 .save-btn {
                     width: 100%; padding: 16px; background: #007AFF; color: white;
                     border: none; border-radius: 16px; font-weight: 600; font-size: 16px;
                     cursor: pointer; margin-top: 10px;
                 }
             `}</style>
-        </MobileLayout>
+        </div>
     );
 }

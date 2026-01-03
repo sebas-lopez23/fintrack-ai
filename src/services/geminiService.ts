@@ -130,6 +130,44 @@ Responde SOLO con un JSON válido en este formato exacto:
 }
 
 /**
+ * Upload PDF statement to server for analysis
+ */
+export async function processPdfStatement(file: File): Promise<{ transactions: any[]; meta: any }> {
+    try {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const response = await fetch('/api/analyze-statement', {
+            method: 'POST',
+            body: formData,
+        });
+
+        if (!response.ok) {
+            let errorMessage = 'Error en el servidor';
+            try {
+                const error = await response.json();
+                errorMessage = error.error || error.details || errorMessage;
+            } catch (e) {
+                // If JSON fails, read text (likely HTML error)
+                const text = await response.text();
+                console.error('Non-JSON response:', text.substring(0, 200));
+                errorMessage = `Error del servidor (${response.status}): Posible problema interno.`;
+            }
+            throw new Error(errorMessage);
+        }
+
+        const data = await response.json();
+        return {
+            transactions: data.transactions || [],
+            meta: data.meta || {}
+        };
+    } catch (error: any) {
+        console.error('Error processing PDF:', error);
+        throw new Error(error.message || 'Error al procesar el extracto PDF');
+    }
+}
+
+/**
  * Convert Blob to base64 string
  */
 function blobToBase64(blob: Blob): Promise<string> {

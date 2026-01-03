@@ -57,18 +57,23 @@ export default function TopBar({
         }
 
         .icon-btn {
-          background: white;
-          border: none;
-          width: 40px;
-          height: 40px;
+          background: var(--glass-surface);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
+          border: 1px solid var(--glass-border);
+          width: 44px;
+          height: 44px;
           border-radius: 50%;
           display: flex;
           align-items: center;
           justify-content: center;
-          color: #000;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+          color: var(--color-text-main);
+          box-shadow: var(--shadow-sm);
           cursor: pointer;
+          transition: transform 0.2s;
         }
+
+        .icon-btn:active { transform: scale(0.9); }
 
         .right-section {
           display: flex;

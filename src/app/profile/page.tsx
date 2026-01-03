@@ -10,15 +10,19 @@ import {
   ChevronRight,
   LogOut,
   Bell,
-  X
+  X,
+  Camera,
+  Sparkles
 } from 'lucide-react';
 import MobileLayout from '@/components/Layout/MobileLayout';
 import { useFinance } from '@/context/FinanceContext';
+import { useOnboarding } from '@/context/OnboardingContext';
 import { UserProfile } from '@/types';
 
 export default function ProfilePage() {
   const router = useRouter();
-  const { isDarkTheme, toggleTheme, currentUser, seedUserDefaults, userId } = useFinance();
+  const { isDarkTheme, toggleTheme, currentUser, seedUserDefaults, userId, updateUserProfile, userProfile } = useFinance();
+  const { restartTour } = useOnboarding();
 
   // Load initial username
   const [userName, setUserName] = useState<string>('Usuario');
@@ -42,6 +46,51 @@ export default function ProfilePage() {
   const [tempName, setTempName] = useState('');
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [familyMembers, setFamilyMembers] = useState(['Hogar']);
+  const [uploading, setUploading] = useState(false);
+  const [avatarError, setAvatarError] = useState(false);
+
+  // Reset error when url changes
+  React.useEffect(() => {
+    setAvatarError(false);
+  }, [userProfile?.avatar_url]);
+
+  const uploadAvatar = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    try {
+      setUploading(true);
+      if (!event.target.files || event.target.files.length === 0) {
+        throw new Error('Debes seleccionar una imagen.');
+      }
+
+      const file = event.target.files[0];
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random()}.${fileExt}`;
+      const filePath = `${userId}/${fileName}`;
+
+      const { supabase } = await import('@/lib/supabase');
+
+      // 1. Upload
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file);
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      // 2. Get Public URL
+      const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
+
+      if (data) {
+        await updateUserProfile({ avatar_url: data.publicUrl });
+        alert('Foto de perfil actualizada!');
+      }
+
+    } catch (error: any) {
+      alert('Error subiendo imagen: ' + error.message);
+    } finally {
+      setUploading(false);
+    }
+  };
 
   // Swipe Logic
   const [touchStart, setTouchStart] = useState<number | null>(null);
@@ -155,8 +204,12 @@ export default function ProfilePage() {
         <h1 className="page-title">Configuración</h1>
 
         <div className="profile-header">
-          <div className="avatar-large">
-            <img src={`https://ui-avatars.com/api/?name=${userName}&background=007AFF&color=fff&size=128`} alt="Profile" />
+          <div className="avatar-large" style={{ position: 'relative' }}>
+            <img
+              src={avatarError ? `https://ui-avatars.com/api/?name=${userName}&background=007AFF&color=fff&size=128` : (userProfile?.avatar_url || `https://ui-avatars.com/api/?name=${userName}&background=007AFF&color=fff&size=128`)}
+              alt="Profile"
+              onError={() => setAvatarError(true)}
+            />
           </div>
           <h2>{userName}</h2>
           <p>{typeof currentUser === 'string' ? currentUser : 'Usuario'}</p>
@@ -209,6 +262,24 @@ export default function ProfilePage() {
               </div>
               <div className="item-right">
                 <Switch checked={notificationsEnabled} onChange={() => setNotificationsEnabled(!notificationsEnabled)} />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="settings-group">
+          <h3 className="group-title">Ayuda</h3>
+          <div className="group-content">
+            <div className="settings-item" onClick={() => {
+              restartTour();
+              router.push('/');
+            }}>
+              <div className="item-left">
+                <div className="icon-box" style={{ background: '#32ADE6' }}><Sparkles size={20} /></div>
+                <span className="item-label">Repetir Tutorial de la App</span>
+              </div>
+              <div className="item-right">
+                <ChevronRight size={16} className="chevron" />
               </div>
             </div>
           </div>
@@ -320,6 +391,25 @@ export default function ProfilePage() {
           width: 100%;
           height: 100%;
           object-fit: cover;
+        }
+
+        .avatar-upload-btn {
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            background: white;
+            border-radius: 50%;
+            padding: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #007AFF;
+            transition: transform 0.2s;
+        }
+        .avatar-upload-btn:active {
+            transform: scale(0.9);
         }
 
         .profile-header h2 {

@@ -107,6 +107,16 @@ export default function TransactionDetailModal({ transaction, isOpen, onClose }:
                                         <span className="value note">{formData.note}</span>
                                     </div>
                                 )}
+                                {formData.accountId && accounts.find(a => a.id === formData.accountId)?.type === 'credit' && (
+                                    <div className="detail-row">
+                                        <span className="label">Cuotas</span>
+                                        <span className="value">
+                                            {formData.installments
+                                                ? `${formData.installments.current} / ${formData.installments.total}`
+                                                : '1 / 1'}
+                                        </span>
+                                    </div>
+                                )}
                             </div>
 
                             <div className="action-buttons">
@@ -188,6 +198,31 @@ export default function TransactionDetailModal({ transaction, isOpen, onClose }:
                                     </select>
                                 </div>
 
+                                {formData.accountId && accounts.find(a => a.id === formData.accountId)?.type === 'credit' && formData.type === 'expense' && (
+                                    <div className="form-group">
+                                        <label>Cuotas</label>
+                                        <select
+                                            value={formData.installments?.total || 1}
+                                            onChange={(e) => {
+                                                const total = Number(e.target.value);
+                                                setFormData({
+                                                    ...formData,
+                                                    installments: {
+                                                        current: formData.installments?.current || 1,
+                                                        total: total
+                                                    }
+                                                });
+                                            }}
+                                            className="input-field"
+                                        >
+                                            <option value={1}>1 Cuota</option>
+                                            {[2, 3, 4, 5, 6, 9, 12, 18, 24, 36].map(n => (
+                                                <option key={n} value={n}>{n} Cuotas</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
+
                                 <div className="form-group">
                                     <label>Nota</label>
                                     <textarea
@@ -254,6 +289,6 @@ export default function TransactionDetailModal({ transaction, isOpen, onClose }:
         .cancel-btn { background: #f2f2f7; }
         .save-btn { background: #007aff; color: white; }
       `}</style>
-        </div>
+        </div >
     );
 }

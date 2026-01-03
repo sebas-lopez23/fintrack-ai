@@ -1,8 +1,9 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { FinanceState, UserType, Transaction, Account, Budget, Subscription, Investment, Family, Invitation, CategoryItem } from '@/types';
+import { FinanceState, UserType, Transaction, Account, Budget, Subscription, Investment, Family, Invitation, CategoryItem, UserProfile } from '@/types';
 import { supabase } from '@/lib/supabase';
+import Toast from '@/components/Shared/Toast';
 
 interface FinanceContextType extends FinanceState {
     setCurrentUser: (user: UserType) => void;
@@ -45,6 +46,10 @@ interface FinanceContextType extends FinanceState {
     currentFamily: Family | null;
     isSharedView: boolean;
     toggleSharedView: () => void;
+    showToast: (message: string, type: 'success' | 'error') => void;
+    calculateCreditCardPayment: (cardId: string, referenceDate?: Date) => any;
+    userProfile: UserProfile | null;
+    updateUserProfile: (updates: Partial<UserProfile>) => Promise<void>;
 }
 
 export interface Transfer {
@@ -74,6 +79,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     const [budgets, setBudgets] = useState<Budget[]>([]);
     const [strategyTargets, setStrategyTargets] = useState({ needs: 50, wants: 30, savings: 20 });
     const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+    const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
     const [isDarkTheme, setIsDarkTheme] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [debugInfo, setDebugInfo] = useState<any>(null);
@@ -89,6 +95,9 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     const [currentFamily, setCurrentFamily] = useState<Family | null>(null);
     const [familyInput, setFamilyInput] = useState('');
     const [isSharedView, setIsSharedView] = useState(false);
+
+    // Toast state
+    const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
     // Initial Data Load
     useEffect(() => {
@@ -167,8 +176,14 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
                     limit: a.credit_limit,
                     cutoffDate: a.cutoff_day,
                     paymentDate: a.payment_day,
-                    handlingFee: a.handling_fee,
-                    is4x1000Exempt: a.is_4x1000_exempt
+                    handlingFee: Number(a.handling_fee || 0),
+                    interestRate: Number(a.interest_rate || 0),
+                    interestFreeOnSinglePayment: a.interest_free_on_single_payment, // Keep only one
+                    is4x1000Exempt: a.is_4x1000_exempt,
+                    icon: a.icon,
+                    color: a.color,
+                    last4Digits: a.last_4_digits,
+                    hasCard: a.has_card
                 }));
                 setAccounts(mappedAccounts);
             }
@@ -191,6 +206,20 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
                 setTransactions(mappedTx);
             }
 
+            // Fetch Profile Data directly
+            if (uid) {
+                const { data: profileData } = await supabase.from('profiles').select('*').eq('id', uid).single();
+                if (profileData) {
+                    console.log('✅ Person Loaded:', profileData.full_name);
+                    setUserProfile({
+                        id: profileData.id,
+                        email: profileData.email,
+                        full_name: profileData.full_name,
+                        avatar_url: profileData.avatar_url
+                    });
+                }
+            }
+
             // Map Subscriptions
             if (data.subscriptions) {
                 const mappedSubs: Subscription[] = data.subscriptions.map((s: any) => ({
@@ -203,8 +232,10 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
                     owner: s.owner_user_id === uid ? 'user1' : 'shared',
                     subscriptionType: 'subscription',
                     description: s.name,
-                    isActive: true,
-                    accountId: s.account_id
+                    isActive: true, // Keep only one
+                    accountId: s.account_id,
+                    icon: s.icon,
+                    color: s.color
                 }));
                 setSubscriptions(mappedSubs);
             }
@@ -392,7 +423,9 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
                 description: tx.note,
                 date: tx.date,
                 created_by: userId,
-                is_shared: tx.is_shared || false
+                is_shared: tx.is_shared || false,
+                installments_current: tx.installments?.current,
+                installments_total: tx.installments?.total
                 // attachments: tx.photoUrl ? [tx.photoUrl] : [] 
             }).select().single();
 
@@ -436,7 +469,9 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
                 description: updates.note,
                 date: updates.date,
                 account_id: updates.accountId,
-                is_shared: updates.is_shared
+                is_shared: updates.is_shared,
+                installments_current: updates.installments?.current,
+                installments_total: updates.installments?.total
                 // attachments: updates.photoUrl ? [updates.photoUrl] : []
             }).eq('id', id);
 
@@ -475,7 +510,13 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
                 credit_limit: acc.limit,
                 cutoff_day: acc.cutoffDate,
                 payment_day: acc.paymentDate,
-                is_shared: acc.is_shared || false
+                interest_rate: acc.interestRate,
+                interest_free_on_single_payment: acc.interestFreeOnSinglePayment, // Keep only one
+                is_shared: acc.is_shared || false,
+                icon: acc.icon,
+                color: acc.color,
+                last_4_digits: acc.last4Digits,
+                has_card: acc.hasCard
             }).select().single();
 
             if (error) throw error;
@@ -511,7 +552,9 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
                 category: sub.category,
                 owner_user_id: userId,
                 account_id: sub.accountId,
-                is_shared: sub.is_shared || false
+                is_shared: sub.is_shared || false,
+                icon: sub.icon,
+                color: sub.color
             }).select().single();
 
             if (error) throw error;
@@ -533,7 +576,9 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
                 periodicity: updates.frequency,
                 next_payment_date: updates.nextPaymentDate,
                 category: updates.category,
-                account_id: updates.accountId
+                account_id: updates.accountId,
+                icon: updates.icon,
+                color: updates.color
             }).eq('id', id);
 
             if (error) throw error;
@@ -596,6 +641,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
             if (error) throw error;
         } catch (error) {
             console.error('Error updating category:', error);
+            throw error;
         }
     };
 
@@ -668,14 +714,21 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
             const { error } = await supabase.from('accounts').update({
                 name: updates.name,
                 balance: updates.balance,
-                credit_limit: updates.limit // Map limit to limit_amount db column if needed, or assume column is 'limit' if created that way. Check schema? usually 'limit' is reserved keyword. Let's assume 'limit' in types maps to 'limit_amount' or just 'limit' in DB.
-                // Actually, let's look at what select returns. It returns whatever is in DB.
-                // Let's assume the DB column is 'limit' or 'limit_amount'.
-                // Based on previous files, I haven't seen the exact schema. I'll guess 'limit' first, if error I'll fix.
+                credit_limit: updates.limit,
+                cutoff_day: updates.cutoffDate,
+                payment_day: updates.paymentDate,
+                interest_rate: updates.interestRate,
+                interest_free_on_single_payment: updates.interestFreeOnSinglePayment,
+                handling_fee: updates.handlingFee,
+                icon: updates.icon,
+                color: updates.color,
+                last_4_digits: updates.last4Digits,
+                has_card: updates.hasCard
             }).eq('id', id);
             if (error) throw error;
         } catch (error) {
             console.error('Error updating account:', error);
+            throw error; // Rethrow so UI knows
         }
     };
 
@@ -693,17 +746,17 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
         try {
             console.log('🌱 Seeding user defaults for:', uid);
 
-            // 0. Ensure Profile Exists (CRITICAL for FK constraints)
-            const { error: profileError } = await supabase.from('profiles').upsert({
-                id: uid,
-                email: email || '',
-                full_name: email?.split('@')[0] || 'Nuevo Usuario',
-                updated_at: new Date().toISOString()
-            }, { onConflict: 'id' });
+            // 0. Ensure Profile Exists SAFELY (Don't overwrite name)
+            const { data: existingProfile } = await supabase.from('profiles').select('id').eq('id', uid).single();
 
-            if (profileError) {
-                console.error('❌ Failed to create profile:', profileError);
-                // If profile fails, others might fail too, but we try anyway
+            if (!existingProfile) {
+                const { error: profileError } = await supabase.from('profiles').insert({
+                    id: uid,
+                    email: email || '',
+                    full_name: email?.split('@')[0] || 'Nuevo Usuario',
+                    updated_at: new Date().toISOString()
+                });
+                if (profileError) console.error('❌ Failed to create profile:', profileError);
             }
 
             // 1. Insert Categories (Check if empty first to avoid duplicates if re-running)
@@ -833,8 +886,136 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
 
     const toggleSharedView = () => setIsSharedView(prev => !prev);
 
-
     const toggleTheme = () => setIsDarkTheme(prev => !prev);
+
+    const showToast = (message: string, type: 'success' | 'error') => {
+        setToast({ message, type });
+    };
+
+    // Credit Card Payment Calculation
+    const calculateCreditCardPayment = (cardId: string, referenceDate: Date = new Date()) => {
+        const card = accounts.find(a => a.id === cardId && a.type === 'credit');
+        if (!card) return null;
+
+        const cutoffDay = card.cutoffDate || 1;
+        const now = referenceDate;
+
+        // Calculate current billing cycle
+        const currentMonth = now.getMonth();
+        const currentYear = now.getFullYear();
+
+        // Determine billing period
+        let periodStart: Date;
+        let periodEnd: Date;
+
+        if (now.getDate() < cutoffDay) {
+            // Before cutoff: period is previous month cutoff to current month cutoff
+            periodStart = new Date(currentYear, currentMonth - 1, cutoffDay);
+            periodEnd = new Date(currentYear, currentMonth, cutoffDay);
+        } else {
+            // After or on cutoff: period is current month cutoff to next month cutoff
+            periodStart = new Date(currentYear, currentMonth, cutoffDay);
+            periodEnd = new Date(currentYear, currentMonth + 1, cutoffDay);
+        }
+
+        // Filter transactions for this card
+        const cardTransactions = transactions.filter(t => t.accountId === cardId);
+
+        // Transactions in current billing period
+        const periodTransactions = cardTransactions.filter(t => {
+            const txDate = new Date(t.date);
+            return txDate >= periodStart && txDate < periodEnd;
+        });
+
+        // Calculate amount for current period
+        let periodAmount = 0;
+        const periodDetails: any[] = [];
+
+        periodTransactions.forEach(tx => {
+            if (tx.installments) {
+                // Installment payment: pay one installment
+                const installmentAmount = tx.amount / tx.installments.total;
+                periodAmount += installmentAmount;
+                periodDetails.push({
+                    ...tx,
+                    paymentAmount: installmentAmount,
+                    reason: `Cuota ${tx.installments.current}/${tx.installments.total}`
+                });
+            } else {
+                // Full payment
+                periodAmount += tx.amount;
+                periodDetails.push({
+                    ...tx,
+                    paymentAmount: tx.amount,
+                    reason: 'Pago completo'
+                });
+            }
+        });
+
+        // Find old transactions with pending installments
+        const oldTransactions = cardTransactions.filter(t => {
+            const txDate = new Date(t.date);
+            return txDate < periodStart && t.installments && t.installments.current < t.installments.total;
+        });
+
+        const pendingInstallments: any[] = [];
+        let pendingAmount = 0;
+
+        oldTransactions.forEach(tx => {
+            if (!tx.installments) return;
+
+            const installmentAmount = tx.amount / tx.installments.total;
+            const remainingInstallments = tx.installments.total - tx.installments.current;
+
+            if (remainingInstallments > 0) {
+                // Pay one more installment this period
+                pendingAmount += installmentAmount;
+                pendingInstallments.push({
+                    ...tx,
+                    paymentAmount: installmentAmount,
+                    remainingInstallments,
+                    reason: `Cuota ${tx.installments.current + 1}/${tx.installments.total}`
+                });
+            }
+        });
+
+        const totalBeforeInterest = periodAmount + pendingAmount;
+
+        // Apply interest: skip if interestFreeOnSinglePayment is enabled and transaction is single-installment
+        let interest = 0;
+        if (card.interestRate && card.interestRate > 0) {
+            if (card.interestFreeOnSinglePayment) {
+                // Only apply interest to multi-installment transactions
+                const multiInstallmentAmount = periodTransactions
+                    .filter(tx => tx.installments && tx.installments.total > 1)
+                    .reduce((sum, tx) => sum + (tx.amount / tx.installments!.total), 0);
+
+                interest = multiInstallmentAmount * card.interestRate / 100;
+            } else {
+                // Apply interest to everything
+                interest = totalBeforeInterest * card.interestRate / 100;
+            }
+        }
+
+        const totalPayment = totalBeforeInterest + interest;
+
+        return {
+            card,
+            periodStart,
+            periodEnd,
+            periodTransactions: periodDetails,
+            periodAmount,
+            pendingInstallments,
+            pendingAmount,
+            interest,
+            totalPayment,
+            paymentDate: card.paymentDate ? new Date(
+                periodEnd.getFullYear(),
+                periodEnd.getMonth(),
+                card.paymentDate
+            ) : null
+        };
+    };
 
     // Filter helpers
     const filterByView = <T extends { owner: string }>(items: T[]) => {
@@ -908,6 +1089,27 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
             .reduce((sum, t) => sum + t.amount, 0);
     };
 
+    const updateUserProfile = async (updates: Partial<UserProfile>) => {
+        if (!userId) return;
+
+        // Optimistic Update
+        setUserProfile(prev => prev ? { ...prev, ...updates } : null);
+
+        try {
+            const { error } = await supabase.from('profiles').update({
+                full_name: updates.full_name,
+                avatar_url: updates.avatar_url
+            }).eq('id', userId);
+
+            if (error) throw error;
+            showToast('Perfil actualizado correctamente', 'success');
+        } catch (error: any) {
+            console.error('Error updating profile:', error);
+            showToast('Error al actualizar perfil: ' + error.message, 'error');
+            // Revert optimistic update if needed, but keeping it simple for now
+        }
+    };
+
     const getBudgetProgress = () => {
         const totalBudget = budgets.reduce((sum, b) => sum + b.limit, 0);
         const totalSpend = getMonthlySpend();
@@ -918,34 +1120,37 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
         const today = new Date();
         const bills: Subscription[] = [];
 
+        // Helper to safely get a date in a specific month, clamping to the last day if needed.
+        // e.g. Feb 30 -> Feb 28/29
+        const getDatePinnedToMonth = (year: number, month: number, day: number): Date => {
+            const date = new Date(year, month, 1);
+            const lastDayOfMonth = new Date(year, month + 1, 0).getDate();
+            date.setDate(Math.min(day, lastDayOfMonth));
+            return date;
+        };
+
         accounts.filter(a => a.type === 'credit').forEach(card => {
             if (!card.cutoffDate || !card.paymentDate) return;
 
-            // Determine relevant billing cycle
-            // If today is before payment date, we might be paying previous cycle
-            // Let's assume simplest model:
-            // "Next Payment" is the next occurrence of paymentDate.
-
-            let nextPayment = new Date(today.getFullYear(), today.getMonth(), card.paymentDate);
+            let nextPayment = getDatePinnedToMonth(today.getFullYear(), today.getMonth(), card.paymentDate);
+            nextPayment.setHours(23, 59, 59, 999);
             if (nextPayment < today) {
-                // If passed, move to next month
-                nextPayment.setMonth(nextPayment.getMonth() + 1);
+                nextPayment = getDatePinnedToMonth(today.getFullYear(), today.getMonth() + 1, card.paymentDate);
+                nextPayment.setHours(23, 59, 59, 999);
             }
 
-            // Billing Cycle End (Cutoff) for this payment
-            // Usually Payment Date is ~10-20 days after Cutoff.
-            // If Payment is Dec 17, Cutoff was likely Dec 2 or Nov 29.
-            // Logic: Cutoff is the closest cutoff date BEFORE the payment date.
-            let cutoff = new Date(nextPayment.getFullYear(), nextPayment.getMonth(), card.cutoffDate);
+            let cutoffCandidate = getDatePinnedToMonth(nextPayment.getFullYear(), nextPayment.getMonth(), card.cutoffDate);
+            cutoffCandidate.setHours(23, 59, 59, 999);
+
+            let cutoff = cutoffCandidate;
             if (cutoff >= nextPayment) {
-                cutoff.setMonth(cutoff.getMonth() - 1);
+                cutoff = getDatePinnedToMonth(cutoff.getFullYear(), cutoff.getMonth() - 1, card.cutoffDate);
+                cutoff.setHours(23, 59, 59, 999);
             }
 
-            // Billing Start
-            let start = new Date(cutoff);
-            start.setMonth(start.getMonth() - 1);
+            let start = getDatePinnedToMonth(cutoff.getFullYear(), cutoff.getMonth() - 1, card.cutoffDate);
+            start.setHours(23, 59, 59, 999);
 
-            // 1. Calculate One-Time Purchases in this period
             const periodExpenses = transactions.filter(t => {
                 const tDate = new Date(t.date);
                 return t.accountId === card.id &&
@@ -957,7 +1162,6 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
 
             const oneTimeSum = periodExpenses.reduce((sum, t) => sum + Math.abs(t.amount), 0);
 
-            // 2. Calculate Installments
             let installmentsSum = 0;
             const installmenttxs = transactions.filter(t =>
                 t.accountId === card.id &&
@@ -968,26 +1172,18 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
 
             installmenttxs.forEach(t => {
                 const tDate = new Date(t.date);
-                // Installments start counting from the first cutoff AFTER purchase? Or immediately?
-                // Usually immediately impacts next bill.
-                // We check if purchase date is BEFORE current cutoff.
                 if (tDate <= cutoff) {
-                    // How many months passed?
-                    // Simple heuristic: (CutoffYear - PurchaseYear) * 12 + (CutoffMonth - PurchaseMonth)
-                    // If bought in Nov, Cutoff in Dec -> 1 month passed.
-
                     const monthsSincePurchase = (cutoff.getFullYear() - tDate.getFullYear()) * 12 +
                         (cutoff.getMonth() - tDate.getMonth());
 
-                    if (monthsSincePurchase >= 0 && monthsSincePurchase < (t.installments?.total || 0)) {
-                        // Add monthly share
+                    if (monthsSincePurchase >= 0 && monthsSincePurchase < (t.installments?.total || 1)) {
                         installmentsSum += (Math.abs(t.amount) / (t.installments?.total || 1));
                     }
                 }
             });
 
-            // ⚠️ CRITICAL FIX: Clamp Bill to Real Debt
-            // Calculate actual current balance to avoid "Phantom Bills" from handling fees when balance is 0.
+            const fee = Number(card.handlingFee || 0);
+
             const realBalance = (card.initialBalance || 0) + transactions
                 .filter(t => t.accountId === card.id)
                 .reduce((sum, t) => {
@@ -998,16 +1194,18 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
 
             const currentDebt = realBalance < 0 ? Math.abs(realBalance) : 0;
 
-            // The projected bill (OneTime + Installments + Fee) cannot exceed the total amount you actually owe.
-            // If you owe $0, you pay $0.
-            let totalDue = oneTimeSum + installmentsSum + (card.handlingFee || 0);
+            let totalDue = oneTimeSum + installmentsSum + fee;
 
-            // Cap at current debt
             if (totalDue > currentDebt) {
                 totalDue = currentDebt;
             }
 
             if (totalDue > 0) {
+                const parts = [];
+                if (oneTimeSum > 0) parts.push(`Compras: $${oneTimeSum.toLocaleString()}`);
+                if (installmentsSum > 0) parts.push(`Cuotas: $${installmentsSum.toLocaleString()}`);
+                if (fee > 0) parts.push(`Manejo: $${fee.toLocaleString()}`);
+
                 bills.push({
                     id: `cc-bill-${card.id}`,
                     name: `Pago ${card.name}`,
@@ -1016,9 +1214,9 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
                     nextPaymentDate: nextPayment.toISOString().split('T')[0],
                     category: 'Debt',
                     owner: 'user1',
-                    subscriptionType: 'credit_card_bill', // Virtual type
+                    subscriptionType: 'credit_card_bill',
                     accountId: card.id,
-                    description: `Corte: ${cutoff.toLocaleDateString()} - Deuda Total: $${currentDebt.toLocaleString()}`
+                    description: `Corte ${cutoff.getDate()}/${cutoff.getMonth() + 1} (${parts.join(', ')})`
                 });
             }
         });
@@ -1111,9 +1309,20 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
             pendingInvites,
             currentFamily,
             isSharedView,
-            toggleSharedView
+            toggleSharedView,
+            showToast,
+            calculateCreditCardPayment,
+            userProfile,
+            updateUserProfile
         }}>
             {children}
+            {toast && (
+                <Toast
+                    message={toast.message}
+                    type={toast.type}
+                    onClose={() => setToast(null)}
+                />
+            )}
         </FinanceContext.Provider>
     );
 }

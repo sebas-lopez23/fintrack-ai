@@ -94,10 +94,12 @@ export default function UpcomingPayments({ onSubscriptionClick }: UpcomingPaymen
 
         .payment-card {
           min-width: 160px;
-          background: var(--color-surface, white);
-          border-radius: 16px;
-          padding: 16px;
-          transition: transform 0.2s;
+          background: var(--glass-surface);
+          border: 1px solid var(--glass-border);
+          border-radius: 20px;
+          padding: 20px;
+          transition: transform 0.2s, box-shadow 0.2s;
+          box-shadow: var(--shadow-sm);
         }
 
         .payment-card.credit-bill {

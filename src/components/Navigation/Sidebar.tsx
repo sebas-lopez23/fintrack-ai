@@ -41,13 +41,11 @@ export default function Sidebar({ isOpen, onClose, inviteCount = 0 }: SidebarPro
     {
       title: 'Gestión',
       items: [
-        { name: 'Transacciones', icon: <List size={20} />, path: '/transactions' },
-        { name: 'Cuentas & Deuda', icon: <CreditCard size={20} />, path: '/accounts' },
+        { name: 'Movimientos', icon: <List size={20} />, path: '/transactions' },
+        { name: 'Billetera', icon: <Wallet size={20} />, path: '/accounts' },
         { name: 'Importar Extracto', icon: <UploadCloud size={20} />, path: '/import' },
         { name: 'Familia', icon: <Users size={20} />, path: '/family', badge: inviteCount > 0 ? `${inviteCount}` : undefined },
-        { name: 'Categorías', icon: <Layers size={20} />, path: '/categories' },
         { name: 'Inversiones', icon: <TrendingUp size={20} />, path: '/investments' },
-        { name: 'Suscripciones', icon: <Calendar size={20} />, path: '/subscriptions' },
       ]
     },
     {
@@ -68,12 +66,15 @@ export default function Sidebar({ isOpen, onClose, inviteCount = 0 }: SidebarPro
 
       <div className={`sidebar ${isOpen ? 'open' : ''}`}>
         <div className="sidebar-header">
-          <div className="logo d-flex align-items-center gap-2">
-            <div className="logo-icon">F</div>
-            <span className="logo-text">FinTrack AI</span>
+          <div className="logo">
+            <div className="logo-icon">💸</div>
+            <div className="logo-text-wrap">
+              <span className="logo-text">FinTrack AI</span>
+              <span className="logo-sub">Gestión inteligente</span>
+            </div>
           </div>
           <button onClick={onClose} className="close-btn">
-            <X size={24} />
+            <X size={20} />
           </button>
         </div>
 
@@ -84,12 +85,12 @@ export default function Sidebar({ isOpen, onClose, inviteCount = 0 }: SidebarPro
               <div className="nav-links">
                 {section.items.map((item) => {
                   const isActive = pathname === item.path;
-                  // Specific styling for Badge
                   const isRedBadge = item.path === '/family' && inviteCount > 0;
                   return (
                     <Link
                       key={item.path}
                       href={item.path}
+                      id={`nav-item-${item.name.toLowerCase().replace(/\s+/g, '-')}`}
                       className={`nav-item ${isActive ? 'active' : ''}`}
                       onClick={onClose}
                     >
@@ -116,95 +117,202 @@ export default function Sidebar({ isOpen, onClose, inviteCount = 0 }: SidebarPro
 
       <style jsx>{`
         .sidebar-overlay {
-          position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-          background: rgba(0, 0, 0, 0.4); z-index: 40; opacity: 0; pointer-events: none;
-          transition: opacity 0.3s ease; backdrop-filter: blur(4px);
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: rgba(0, 0, 0, 0.5);
+          z-index: 40;
+          opacity: 0;
+          pointer-events: none;
+          transition: opacity 0.3s ease;
+          backdrop-filter: blur(8px);
         }
-        .sidebar-overlay.open { opacity: 1; pointer-events: auto; }
+        .sidebar-overlay.open { 
+          opacity: 1;
+          pointer-events: auto;
+        }
 
         .sidebar {
-          position: fixed; top: 0; left: 0; width: 300px; height: 100%;
-          background: #FFFFFF; z-index: 50; transform: translateX(-100%);
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 300px;
+          height: 100%;
+          background: white;
+          z-index: 50;
+          transform: translateX(-100%);
           transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
-          display: flex; flex-direction: column;
-          box-shadow: 10px 0 40px rgba(0,0,0,0.1);
+          display: flex;
+          flex-direction: column;
+          box-shadow: 10px 0 40px rgba(0,0,0,0.08);
         }
-        .sidebar.open { transform: translateX(0); }
+        .sidebar.open { 
+          transform: translateX(0);
+        }
 
         .sidebar-header {
-          padding: 24px; display: flex; align-items: center; justify-content: space-between;
-          border-bottom: 1px solid #F5F5F5;
+          padding: 24px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          border-bottom: 1px solid #f0f0f5;
         }
 
-        .logo { display: flex; align-items: center; gap: 12px; text-decoration: none; }
-        .logo-icon-bg {
-            width: 40px; height: 40px; background: #F2F2F7; border-radius: 12px;
-            display: flex; align-items: center; justify-content: center; font-size: 20px;
+        .logo {
+          display: flex;
+          align-items: center;
+          gap: 12px;
         }
-        .logo-text-wrapper { display: flex; flex-direction: column; }
-        .logo-text { font-size: 18px; font-weight: 700; color: #1C1C1E; letter-spacing: -0.5px; }
-        .logo-sub { font-size: 11px; color: #8E8E93; font-weight: 500; text-transform: uppercase; letter-spacing: 1px; }
+        
+        .logo-icon {
+          font-size: 28px;
+        }
+        
+        .logo-text-wrap {
+          display: flex;
+          flex-direction: column;
+        }
+        
+        .logo-text {
+          font-size: 18px;
+          font-weight: 800;
+          color: #1f2937;
+          letter-spacing: -0.5px;
+        }
+        
+        .logo-sub {
+          font-size: 11px;
+          color: #9ca3af;
+          font-weight: 500;
+        }
 
-        .close-btn { 
-            background: #F2F2F7; border: none; color: #3C3C43; width: 32px; height: 32px; 
-            border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer;
-            transition: background 0.2s;
+        .close-btn {
+          background: #f5f5f7;
+          border: none;
+          color: #6b7280;
+          width: 36px;
+          height: 36px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: all 0.2s;
         }
-        .close-btn:active { background: #E5E5EA; }
+        .close-btn:hover {
+          background: #e5e7eb;
+        }
 
         .sidebar-content {
-          flex: 1; padding: 24px; overflow-y: auto;
-          display: flex; flex-direction: column; gap: 24px;
+          flex: 1;
+          padding: 20px 16px;
+          overflow-y: auto;
+          display: flex;
+          flex-direction: column;
+          gap: 28px;
         }
 
         .section-title {
-          font-size: 11px; color: #8E8E93; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;
-          margin: 0 0 12px 12px;
+          font-size: 11px;
+          color: #9ca3af;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+          font-weight: 700;
+          margin: 0 0 10px 12px;
         }
 
-        .nav-links { display: flex; flex-direction: column; gap: 4px; }
+        .nav-links {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
 
         .nav-item {
-          display: flex; align-items: center; gap: 14px; padding: 12px 14px;
-          border-radius: 14px; color: #3C3C43; text-decoration: none;
-          font-size: 15px; font-weight: 500; transition: all 0.2s ease;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 12px 14px;
+          border-radius: 12px;
+          color: #4b5563;
+          text-decoration: none;
+          font-size: 15px;
+          font-weight: 500;
+          transition: all 0.2s ease;
           position: relative;
         }
 
-        .nav-item:hover { background: #F2F2F7; }
+        .nav-item:hover {
+          background: #f9fafb;
+          color: #111827;
+        }
         
         .nav-item.active {
-          background: #007AFF; color: white;
-          box-shadow: 0 4px 12px rgba(0,122,255,0.25);
+          background: #f0f4ff;
+          color: #4f46e5;
+          font-weight: 600;
         }
         
-        .nav-item.special { color: #5856D6; }
-        .nav-item.special svg { stroke: #5856D6; }
-        .nav-item.special.active { 
-            background: linear-gradient(135deg, #5856D6 0%, #AF52DE 100%); 
-            color: white; 
+        .nav-item .icon {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
         }
-        .nav-item.special.active svg { stroke: white; }
+
+        .nav-item .label {
+          flex: 1;
+        }
 
         .badge {
-            margin-left: auto; font-size: 10px; font-weight: 700;
-            background: #E5E5EA; color: #8E8E93; padding: 2px 8px; border-radius: 100px;
+          margin-left: auto;
+          font-size: 10px;
+          font-weight: 700;
+          background: #e0e7ff;
+          color: #4f46e5;
+          padding: 3px 8px;
+          border-radius: 100px;
         }
-        .nav-item.active .badge { background: rgba(255,255,255,0.2); color: white; }
+        .nav-item.active .badge {
+          background: #4f46e5;
+          color: white;
+        }
 
         .badge.red {
-            background: #FF3B30; color: white;
-            box-shadow: 0 2px 6px rgba(255,59,48,0.3);
+          background: #FF3B30;
+          color: white;
+          animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.05); }
         }
 
-        .sidebar-footer { padding: 24px; border-top: 1px solid #F5F5F5; }
-        .logout-btn {
-          width: 100%; display: flex; align-items: center; gap: 12px; padding: 12px 14px;
-          background: #FFF0F0; border: none; border-radius: 14px;
-          color: #FF3B30; font-size: 15px; font-weight: 600;
-          cursor: pointer; transition: background 0.2s;
+        .sidebar-footer {
+          padding: 16px;
+          border-top: 1px solid #f0f0f5;
         }
-        .logout-btn:active { background: #FFE5E5; }
+        
+        .logout-btn {
+          width: 100%;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 12px 14px;
+          background: #fef2f2;
+          border: 1px solid #fecaca;
+          border-radius: 12px;
+          color: #dc2626;
+          font-size: 15px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+        .logout-btn:hover {
+          background: #fee2e2;
+        }
       `}</style>
     </>
   );
