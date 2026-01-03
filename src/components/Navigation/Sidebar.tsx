@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   X,
   CreditCard,
@@ -108,7 +108,12 @@ export default function Sidebar({ isOpen, onClose, inviteCount = 0 }: SidebarPro
         </div>
 
         <div className="sidebar-footer">
-          <button className="logout-btn">
+          <button className="logout-btn" onClick={async () => {
+            const { supabase } = await import('@/lib/supabase'); // Dynamic import to avoid circular dep issues if any, or just clean usage
+            await supabase.auth.signOut();
+            // Clear any local state if needed
+            window.location.href = '/'; // Hard redirect to clear any in-memory state
+          }}>
             <LogOut size={20} />
             <span>Cerrar Sesión</span>
           </button>

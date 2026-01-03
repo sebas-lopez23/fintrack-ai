@@ -2,16 +2,24 @@
 
 import React from 'react';
 import { useOnboarding } from '@/context/OnboardingContext';
+import { useRouter } from 'next/navigation'; // Correct import for App Router
 import CategorySelection from './CategorySelection';
 import AccountSetup from './AccountSetup';
 import WelcomeCarousel from './WelcomeCarousel';
-// We'll skip DashboardTour import here as it will be an overlay on the main dashboard
+import TransactionImport from './TransactionImport';
 
 export default function SetupContainer() {
   const { currentStep, isLoading } = useOnboarding();
+  const router = useRouter();
 
   if (isLoading) {
     return <div className="setup-loading">Cargando...</div>;
+  }
+
+  // Redirect to dashboard if we hit the tour step (it happens there)
+  if (currentStep === 'tour') {
+    router.push('/dashboard');
+    return <div className="setup-loading">Redirigiendo al Dashboard...</div>;
   }
 
   return (
@@ -19,8 +27,8 @@ export default function SetupContainer() {
       {currentStep === 'welcome' && <WelcomeCarousel />}
       {currentStep === 'categories' && <CategorySelection />}
       {currentStep === 'accounts' && <AccountSetup />}
-      {/* Import step is optional/skipped for now as per minimal viable onboarding */}
-      {/* Tour is handled in the main layout/dashboard */}
+      {currentStep === 'import' && <TransactionImport />}
+      {/* Tour step redirects to dashboard automatically above */}
 
       <style jsx>{`
         .setup-wrapper {
